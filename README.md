@@ -42,21 +42,15 @@ npx wrangler deploy        # go live 🚀
 
 ## Why TempeMail?
 
-| Feature | **TempeMail** | tempik | inbix |
-|---|---|---|---|
-| Multi-domain | ✅ | ❌ | ❌ |
-| Zero-config setup | ✅ automated | ❌ manual toml | ❌ manual wiki |
-| HTML email render | ✅ | ❌ | ✅ |
-| OTP auto-highlight | ✅ | ❌ | ❌ |
-| SPF/DKIM/DMARC viewer | ✅ | ❌ | ❌ |
-| Semantic tags | ✅ | ❌ | ❌ |
-| Custom address | ✅ | ❌ | ❌ |
-| Deliverability diagnostics | ✅ | ❌ | ❌ |
-| Self-hosted | ✅ | ✅ | ✅ |
-| Cloudflare free tier | ✅ | ✅ | ✅ |
-| No VPS / Docker / SMTP | ✅ | ✅ | ✅ |
+TempeMail is a self-hosted disposable email service that runs entirely on the Cloudflare edge — no VPS, no Docker, no SMTP server. One worker handles the web UI, REST API, inbound email delivery, and automatic provisioning.
 
-Most temp-mail projects support a single domain and require manual configuration. TempeMail's combination of **zero-config provisioning**, **multi-domain support**, and **deliverability diagnostics** is unique in the ecosystem.
+What sets it apart from other temp-mail projects:
+
+- **Multi-domain** — serve disposable inboxes across any number of domains from a single worker, without extra config.
+- **Zero-config setup** — `npm run setup` provisions D1, Email Routing, and zone catch-all rules automatically. Idempotent and re-runnable.
+- **Deliverability diagnostics** — SPF/DKIM/DMARC status for every message, which most temp-mail services don't expose.
+- **Agent-ready** — REST API keys, webhooks, RSS feeds, SSE streams, and a built-in MCP server so AI agents can read inboxes natively.
+- **Self-hosted** — you own the infrastructure and the data, on Cloudflare's free tier.
 
 ---
 
