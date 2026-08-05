@@ -35,8 +35,8 @@ export async function parseEmail(raw: ReadableStream): Promise<ParsedEmail> {
   // Reconstruct raw headers for deliverability extraction
   const rawHeaderLines: string[] = [];
   if (parsed.headers) {
-    for (const [key, value] of parsed.headers.entries()) {
-      rawHeaderLines.push(`${key}: ${value}`);
+    for (const header of parsed.headers) {
+      rawHeaderLines.push(`${header.key}: ${header.value}`);
     }
   }
   const rawHeaders = rawHeaderLines.join('\r\n');

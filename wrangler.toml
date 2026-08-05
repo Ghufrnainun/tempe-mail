@@ -18,8 +18,9 @@ database_name = "tempe-mail-db"
 database_id = "REPLACED_BY_SETUP"
 
 # Durable Objects for SSE realtime
-[[durable_objects]]
-bindings = [{ name = "REALTIME", class_name = "RealtimeRoom" }]
+[[durable_objects.bindings]]
+name = "REALTIME"
+class_name = "RealtimeRoom"
 
 [[migrations]]
 tag = "v1"
