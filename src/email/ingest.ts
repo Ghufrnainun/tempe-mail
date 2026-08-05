@@ -1,4 +1,5 @@
 import PostalMime from 'postal-mime';
+import { extractDeliverability, type Deliverability } from './headers';
 
 export interface ParsedEmail {
   subject: string;
@@ -10,6 +11,9 @@ export interface ParsedEmail {
   html: string;
   rawHeaders: string;
   attachments: Array<{ filename: string; contentType: string; size: number }>;
+  spf: Deliverability['spf'];
+  dkim: Deliverability['dkim'];
+  dmarc: Deliverability['dmarc'];
 }
 
 /**
@@ -44,6 +48,8 @@ export async function parseEmail(raw: ReadableStream): Promise<ParsedEmail> {
     size: ((a.content as Uint8Array)?.byteLength) || (typeof a.content === 'string' ? a.content.length : 0),
   }));
 
+  const deliverability = extractDeliverability(rawHeaders);
+
   return {
     subject,
     fromAddress,
@@ -54,5 +60,6 @@ export async function parseEmail(raw: ReadableStream): Promise<ParsedEmail> {
     html,
     rawHeaders,
     attachments,
+    ...deliverability,
   };
 }
