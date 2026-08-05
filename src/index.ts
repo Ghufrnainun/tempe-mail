@@ -64,20 +64,13 @@ export default {
     // Reconstruct full address
     const inboxAddress = `${localPart}@${domain}`;
 
-    // Auto-create inbox if it doesn't exist
-    const existing = await db
-      .prepare('SELECT address FROM inboxes WHERE address = ?')
-      .bind(inboxAddress)
-      .first<{ address: string }>();
-
-    if (!existing) {
-      await db
-        .prepare(
-          'INSERT INTO inboxes (address, created_at, expires_at) VALUES (?, ?, datetime(?, ?))'
-        )
-        .bind(inboxAddress, now, now, `+${24 * 3600} seconds`)
-        .run();
-    }
+    // Auto-create inbox if it doesn't exist (INSERT OR IGNORE = race-safe)
+    await db
+      .prepare(
+        'INSERT OR IGNORE INTO inboxes (address, created_at, expires_at) VALUES (?, ?, datetime(?))'
+      )
+      .bind(inboxAddress, now, new Date(Date.now() + 24 * 3600 * 1000).toISOString())
+      .run();
 
     await db
       .prepare(

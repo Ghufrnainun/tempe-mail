@@ -1,10 +1,21 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { Env } from '../env';
 import { getDomains } from '../cf/zones-loader';
 import { classifyEmail } from './tagging';
 import { handleSse } from './realtime';
 
 const api = new Hono<{ Bindings: Env }>();
+
+// Zod schema for inbox creation (robust input validation)
+const createInboxSchema = z.object({
+  localPart: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9._-]{0,28}[a-z0-9]$/i, 'invalid local part')
+    .optional(),
+  domain: z.string().min(3).max(253).optional(),
+  ttlHours: z.number().int().min(1).max(168).optional(),
+});
 
 // ---- GET /api/config ----
 api.get('/config', (c) => {
@@ -51,13 +62,24 @@ api.post('/inboxes', async (c) => {
   const sid = c.req.header('x-session-id');
   if (!sid) return c.json({ error: 'x-session-id header required' }, 401);
 
-  const body = await c.req.json<{ localPart?: string; domain?: string; ttlHours?: number }>();
+  // Parse + validate body; malformed JSON → 400, invalid fields → 400
+  let body: z.infer<typeof createInboxSchema>;
+  try {
+    const raw = await c.req.text();
+    body = createInboxSchema.parse(raw ? JSON.parse(raw) : {});
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: 'invalid body', details: err.issues.map((i) => i.message) }, 400);
+    }
+    return c.json({ error: 'invalid JSON body' }, 400);
+  }
+
   const domains = getDomains(c.env);
   const domain = body.domain || domains[0] || 'example.com';
 
-  // Generate a random local part or use the custom one
+  // Zod already validated localPart format; use it or generate random
   let localPart: string;
-  if (body.localPart && /^[a-z0-9][a-z0-9._-]{0,28}[a-z0-9]$/i.test(body.localPart)) {
+  if (body.localPart) {
     localPart = body.localPart.toLowerCase();
   } else {
     // Random address
@@ -75,7 +97,9 @@ api.post('/inboxes', async (c) => {
   await db.prepare('INSERT OR IGNORE INTO sessions (id, created_at) VALUES (?, ?)').bind(sid, new Date().toISOString()).run();
 
   // Create inbox
-  const ttlHours = body.ttlHours ?? 24;
+  // Clamp TTL to sane bounds: min 1 hour, max 7 days (168h)
+  const rawTtl = body.ttlHours ?? 24;
+  const ttlHours = Math.min(168, Math.max(1, Math.floor(rawTtl)));
   await db
     .prepare('INSERT OR IGNORE INTO inboxes (address, created_at, expires_at) VALUES (?, datetime(\'now\'), datetime(\'now\', ?))')
     .bind(address, `+${ttlHours * 3600} seconds`)
@@ -91,6 +115,15 @@ api.post('/inboxes', async (c) => {
 api.get('/inboxes/:address/messages', async (c) => {
   const db = c.env.DB;
   const address = c.req.param('address');
+  const sid = c.req.header('x-session-id');
+
+  // Require session ownership of this inbox (privacy: temp mail harus private)
+  if (!sid) return c.json({ error: 'x-session-id header required' }, 401);
+  const owned = await db
+    .prepare('SELECT 1 FROM session_inboxes WHERE session_id = ? AND inbox_address = ?')
+    .bind(sid, address)
+    .first();
+  if (!owned) return c.json({ error: 'inbox not found' }, 404);
 
   const rows = await db
     .prepare(
