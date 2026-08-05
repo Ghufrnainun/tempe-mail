@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import apiRoutes from './api/routes';
+import rssRoutes from './api/rss';
 import type { ParsedEmail } from './email/ingest';
 import { parseEmail } from './email/ingest';
+import { notifyNewMessage } from './api/realtime';
 import type { Env } from './env';
 
 const app = new Hono<{ Bindings: Env }>();
+
+// Mount RSS feeds at root level (public, no session)
+app.route('/', rssRoutes);
 
 // Mount API routes
 app.route('/api', apiRoutes);
@@ -106,6 +111,19 @@ export default {
         .bind(id, att.filename, att.contentType, att.size)
         .run();
     }
+
+    // Notify realtime subscribers
+    try {
+      await notifyNewMessage(env, inboxAddress, {
+        id,
+        from_address: parsed.fromAddress,
+        from_name: parsed.fromName,
+        subject: parsed.subject,
+        received_at: now,
+      });
+    } catch {
+      // Realtime is best-effort; don't fail the email delivery
+    }
   },
 
   /**
@@ -131,3 +149,6 @@ export default {
       .run();
   },
 };
+
+// Export the Durable Object class for wrangler to discover
+export { RealtimeRoom } from './db/realtime-room';

@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import { getDomains } from '../cf/zones-loader';
+import { classifyEmail } from './tagging';
+import { handleSse } from './realtime';
 
 const api = new Hono<{ Bindings: Env }>();
 
@@ -110,6 +112,9 @@ api.get('/inboxes/:address/messages', async (c) => {
           return { filename: filename || '', contentType: contentType || '', size: parseInt(sizeStr || '0') };
         })
       : [];
+
+    const classification = classifyEmail(row.subject || '', row.from_address || '');
+
     return {
       id: row.id,
       inbox_address: row.inbox_address,
@@ -122,11 +127,19 @@ api.get('/inboxes/:address/messages', async (c) => {
       dkim: row.dkim || 'unknown',
       dmarc: row.dmarc || 'unknown',
       attachments,
+      tag: classification.tag,
+      tag_label: classification.label,
       received_at: row.received_at,
     };
   });
 
   return c.json(messages);
+});
+
+// ---- GET /api/inboxes/:address/events (SSE realtime) ----
+api.get('/inboxes/:address/events', async (c) => {
+  const address = c.req.param('address');
+  return handleSse(c.env, address);
 });
 
 // ---- DELETE /api/inboxes/:address ----
