@@ -4,6 +4,7 @@ import rssRoutes from './api/rss';
 import type { ParsedEmail } from './email/ingest';
 import { parseEmail } from './email/ingest';
 import { notifyNewMessage } from './api/realtime';
+import { deliverWebhooks } from './api/webhooks';
 import type { Env } from './env';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -94,14 +95,25 @@ export default {
       )
       .run();
 
-    // Store attachment metadata
+    // Store attachment metadata + bodies in R2 (if binding exists)
     for (const att of parsed.attachments) {
+      let r2Key = '';
+      if (env.ATTACHMENTS && att.content) {
+        r2Key = `${id}/${att.filename}`;
+        try {
+          await env.ATTACHMENTS.put(r2Key, att.content, {
+            httpMetadata: { contentType: att.contentType },
+          });
+        } catch {
+          // R2 failure is best-effort — metadata still recorded
+        }
+      }
       await db
         .prepare(
-          `INSERT INTO attachments (message_id, filename, content_type, size)
-           VALUES (?, ?, ?, ?)`
+          `INSERT INTO attachments (message_id, filename, content_type, size, r2_key)
+           VALUES (?, ?, ?, ?, ?)`
         )
-        .bind(id, att.filename, att.contentType, att.size)
+        .bind(id, att.filename, att.contentType, att.size, r2Key)
         .run();
     }
 
@@ -116,6 +128,24 @@ export default {
       });
     } catch {
       // Realtime is best-effort; don't fail the email delivery
+    }
+
+    // Deliver webhooks (best-effort)
+    try {
+      await deliverWebhooks(env, inboxAddress, {
+        event: 'new_message',
+        inbox_address: inboxAddress,
+        message: {
+          id,
+          from_address: parsed.fromAddress,
+          from_name: parsed.fromName,
+          subject: parsed.subject,
+          body_preview: (parsed.text || '').slice(0, 200),
+          received_at: now,
+        },
+      });
+    } catch {
+      // Webhooks are best-effort
     }
   },
 

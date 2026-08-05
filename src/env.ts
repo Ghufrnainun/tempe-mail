@@ -5,6 +5,7 @@ export interface Env {
   DB: D1Database;
   ASSETS?: Fetcher;
   REALTIME: DurableObjectNamespace;
+  ATTACHMENTS?: R2Bucket;
   CF_API_TOKEN?: string;
   WORKER_NAME?: string;
   ADMIN_KEY?: string;

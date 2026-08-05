@@ -10,7 +10,12 @@ export interface ParsedEmail {
   text: string;
   html: string;
   rawHeaders: string;
-  attachments: Array<{ filename: string; contentType: string; size: number }>;
+  attachments: Array<{
+    filename: string;
+    contentType: string;
+    size: number;
+    content?: Uint8Array | string | null;
+  }>;
   spf: Deliverability['spf'];
   dkim: Deliverability['dkim'];
   dmarc: Deliverability['dmarc'];
@@ -41,11 +46,12 @@ export async function parseEmail(raw: ReadableStream): Promise<ParsedEmail> {
   }
   const rawHeaders = rawHeaderLines.join('\r\n');
 
-  // Attachments metadata
+  // Attachments metadata + content (for R2 storage)
   const attachments = (parsed.attachments || []).map((a) => ({
     filename: a.filename || 'unnamed',
     contentType: a.mimeType || 'application/octet-stream',
     size: ((a.content as Uint8Array)?.byteLength) || (typeof a.content === 'string' ? a.content.length : 0),
+    content: (a.content as Uint8Array | string | null) ?? undefined,
   }));
 
   const deliverability = extractDeliverability(rawHeaders);

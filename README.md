@@ -83,8 +83,13 @@ Most temp-mail projects support a single domain and require manual configuration
 
 ### 🤖 Developer / AI-agent friendly
 - **REST API** — full JSON API for scripts and automation.
+- **API key auth** — `Authorization: Bearer tmk_...` for scripts/agents (no browser session needed). Keys hashed with SHA-256, revocable.
+- **Webhooks** — POST to any URL when new mail arrives, signed with HMAC-SHA256 (`X-TempeMail-Signature`).
+- **MCP server** — Model Context Protocol bridge so Claude Code / Cursor / any MCP client can read inboxes as tools (`list_inboxes`, `list_messages`, `get_message`).
 - **RSS feed per inbox** — `GET /inboxes/:address/feed.xml` requires no auth (the address itself is the secret). Poll it from any script.
 - **SSE stream per inbox** — realtime push to any client.
+- **Inbox search** — `GET /inboxes/:address/search?q=` searches subject, body, and sender.
+- **Attachment download** — full attachment bodies stored in R2 and downloadable per message.
 - **AGENTS.md** — onboarding guide so AI coding agents can work on this repo immediately.
 
 ---
@@ -344,13 +349,19 @@ All values are read at setup time. Secrets stay in `.env` (gitignored) — never
 
 ## Roadmap
 
-See [AGENTS.md](./AGENTS.md) and the plan document for details. Planned:
+See [AGENTS.md](./AGENTS.md) and the plan document for details.
 
-- [ ] REST API key authentication (no browser session needed)
-- [ ] Webhooks (POST to a URL on new mail)
-- [ ] MCP server (Model Context Protocol) for AI agents
-- [ ] Full attachment download (R2 storage)
-- [ ] Inbox search
+### ✅ Phase 2 — done
+- [x] REST API key authentication (no browser session needed)
+- [x] Webhooks (POST to a URL on new mail, HMAC-signed)
+- [x] MCP server (Model Context Protocol) for AI agents
+- [x] Full attachment download (R2 storage)
+- [x] Inbox search
+
+### 🔜 Planned
+- [ ] Frontend UI for API keys, webhooks, and search (backends are API-ready)
+- [ ] Rate limiting per key
+- [ ] Multiple webhook events (message deleted, inbox expired)
 
 ---
 

@@ -26,6 +26,12 @@ class_name = "RealtimeRoom"
 tag = "v1"
 new_sqlite_classes = ["RealtimeRoom"]
 
+# R2 bucket for attachment bodies — populated by setup
+# [[r2_buckets]]
+# binding = "ATTACHMENTS"
+# bucket_name = "tempe-mail-attachments"
+# preview_url = "REPLACED_BY_SETUP"
+
 # Custom domain route — populated by setup
 [[routes]]
 pattern = "REPLACED_BY_SETUP"

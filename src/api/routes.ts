@@ -1,11 +1,15 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { z } from 'zod';
 import type { Env } from '../env';
 import { getDomains } from '../cf/zones-loader';
 import { classifyEmail } from './tagging';
 import { handleSse } from './realtime';
+import { generateApiKey, hashKey } from './keys';
 
 const api = new Hono<{ Bindings: Env }>();
+
+type AppContext = Context<{ Bindings: Env }>;
 
 // Zod schema for inbox creation (robust input validation)
 const createInboxSchema = z.object({
@@ -16,6 +20,74 @@ const createInboxSchema = z.object({
   domain: z.string().min(3).max(253).optional(),
   ttlHours: z.number().int().min(1).max(168).optional(),
 });
+
+const webhookSchema = z.object({
+  url: z.string().url('invalid webhook URL'),
+  secret: z.string().min(8, 'secret must be at least 8 chars').max(256).optional().default(''),
+  events: z.string().default('new_message'),
+});
+
+// NOTE: no `.api_key_inboxes`-based list — inboxes created by a key are linked.
+interface Principal {
+  type: 'session';
+  sessionId: string;
+}
+
+/**
+ * Resolve the authenticated principal from the request.
+ * Supports browser session (x-session-id) or API key (Authorization: Bearer tmk_...).
+ * Returns null when unauthenticated.
+ */
+async function getPrincipal(c: AppContext): Promise<Principal | null> {
+  const db = c.env.DB;
+
+  const sid = c.req.header('x-session-id');
+  if (sid) {
+    const session = await db
+      .prepare('SELECT id FROM sessions WHERE id = ?')
+      .bind(sid)
+      .first<{ id: string }>();
+    if (session) return { type: 'session', sessionId: sid };
+    return null;
+  }
+
+  const authHeader = c.req.header('Authorization') || '';
+  const match = authHeader.match(/^Bearer\s+(tmk_.+)$/i);
+  if (match) {
+    const hash = await hashKey(match[1]);
+    const key = await db
+      .prepare('SELECT id, revoked FROM api_keys WHERE key_hash = ?')
+      .bind(hash)
+      .first<{ id: number; revoked: number }>();
+    if (key && !key.revoked) {
+      return { type: 'session', sessionId: `apikey:${key.id}` };
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/** Check whether the principal owns an inbox (session or API key). */
+async function ownsInbox(c: AppContext, principal: Principal, address: string): Promise<boolean> {
+  const db = c.env.DB;
+  const sid = principal.sessionId;
+
+  if (sid.startsWith('apikey:')) {
+    const keyId = parseInt(sid.slice(7), 10);
+    const owned = await db
+      .prepare('SELECT 1 FROM api_key_inboxes WHERE api_key_id = ? AND inbox_address = ?')
+      .bind(keyId, address)
+      .first();
+    return !!owned;
+  }
+
+  const owned = await db
+    .prepare('SELECT 1 FROM session_inboxes WHERE session_id = ? AND inbox_address = ?')
+    .bind(sid, address)
+    .first();
+  return !!owned;
+}
 
 // ---- GET /api/config ----
 api.get('/config', (c) => {
@@ -36,11 +108,68 @@ api.post('/session', async (c) => {
   return c.json({ sessionId: id });
 });
 
-// ---- GET /api/inboxes (list inboxes for session) ----
+// ---- POST /api/keys (create API key — requires browser session) ----
+api.post('/keys', async (c) => {
+  const principal = await getPrincipal(c);
+  if (!principal || principal.sessionId.startsWith('apikey:')) {
+    return c.json({ error: 'browser session required to create API keys' }, 401);
+  }
+  const db = c.env.DB;
+  const rawKey = generateApiKey();
+  const hash = await hashKey(rawKey);
+  const name = (c.req.header('x-key-name') || '').slice(0, 64);
+  const res = await db
+    .prepare('INSERT INTO api_keys (key_hash, name) VALUES (?, ?)')
+    .bind(hash, name)
+    .run();
+  const keyId = res.meta.last_row_id;
+  return c.json({ id: keyId, key: rawKey, name }, 201);
+});
+
+// ---- GET /api/keys (list API keys — requires browser session) ----
+api.get('/keys', async (c) => {
+  const principal = await getPrincipal(c);
+  if (!principal || principal.sessionId.startsWith('apikey:')) {
+    return c.json({ error: 'browser session required' }, 401);
+  }
+  const rows = await c.env.DB.prepare(
+    'SELECT id, name, created_at, last_used_at, revoked FROM api_keys ORDER BY id DESC'
+  ).all<{ id: number; name: string; created_at: string; last_used_at: string; revoked: number }>();
+  return c.json(rows.results);
+});
+
+// ---- DELETE /api/keys/:id (revoke API key) ----
+api.delete('/keys/:id', async (c) => {
+  const principal = await getPrincipal(c);
+  if (!principal || principal.sessionId.startsWith('apikey:')) {
+    return c.json({ error: 'browser session required' }, 401);
+  }
+  const id = parseInt(c.req.param('id'), 10);
+  if (!id) return c.json({ error: 'invalid key id' }, 400);
+  await c.env.DB.prepare('UPDATE api_keys SET revoked = 1 WHERE id = ?').bind(id).run();
+  return c.json({ revoked: true });
+});
+
+// ---- GET /api/inboxes (list inboxes for principal) ----
 api.get('/inboxes', async (c) => {
   const db = c.env.DB;
-  const sid = c.req.header('x-session-id');
-  if (!sid) return c.json({ error: 'x-session-id header required' }, 401);
+  const principal = await getPrincipal(c);
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+
+  if (principal.sessionId.startsWith('apikey:')) {
+    const keyId = parseInt(principal.sessionId.slice(7), 10);
+    const rows = await db
+      .prepare(
+        `SELECT i.address, i.created_at, i.expires_at
+         FROM inboxes i
+         JOIN api_key_inboxes aki ON i.address = aki.inbox_address
+         WHERE aki.api_key_id = ? AND i.expires_at > datetime('now')
+         ORDER BY i.created_at DESC`
+      )
+      .bind(keyId)
+      .all<{ address: string; created_at: string; expires_at: string }>();
+    return c.json(rows.results);
+  }
 
   const rows = await db
     .prepare(
@@ -50,7 +179,7 @@ api.get('/inboxes', async (c) => {
        WHERE si.session_id = ? AND i.expires_at > datetime('now')
        ORDER BY i.created_at DESC`
     )
-    .bind(sid)
+    .bind(principal.sessionId)
     .all<{ address: string; created_at: string; expires_at: string }>();
 
   return c.json(rows.results);
@@ -59,8 +188,8 @@ api.get('/inboxes', async (c) => {
 // ---- POST /api/inboxes (create new inbox) ----
 api.post('/inboxes', async (c) => {
   const db = c.env.DB;
-  const sid = c.req.header('x-session-id');
-  if (!sid) return c.json({ error: 'x-session-id header required' }, 401);
+  const principal = await getPrincipal(c);
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
 
   // Parse + validate body; malformed JSON → 400, invalid fields → 400
   let body: z.infer<typeof createInboxSchema>;
@@ -93,10 +222,17 @@ api.post('/inboxes', async (c) => {
 
   const address = `${localPart}@${domain}`;
 
-  // Ensure session exists
-  await db.prepare('INSERT OR IGNORE INTO sessions (id, created_at) VALUES (?, ?)').bind(sid, new Date().toISOString()).run();
+  // Create inbox (session guaranteed by getPrincipal)
+  if (principal.sessionId.startsWith('apikey:')) {
+    const keyId = parseInt(principal.sessionId.slice(7), 10);
+    await db.prepare('INSERT OR IGNORE INTO api_keys (id) VALUES (?)').bind(keyId).run();
+  } else {
+    await db
+      .prepare('INSERT OR IGNORE INTO sessions (id, created_at) VALUES (?, ?)')
+      .bind(principal.sessionId, new Date().toISOString())
+      .run();
+  }
 
-  // Create inbox
   // Clamp TTL to sane bounds: min 1 hour, max 7 days (168h)
   const rawTtl = body.ttlHours ?? 24;
   const ttlHours = Math.min(168, Math.max(1, Math.floor(rawTtl)));
@@ -105,8 +241,18 @@ api.post('/inboxes', async (c) => {
     .bind(address, `+${ttlHours * 3600} seconds`)
     .run();
 
-  // Link to session
-  await db.prepare('INSERT OR IGNORE INTO session_inboxes (session_id, inbox_address) VALUES (?, ?)').bind(sid, address).run();
+  // Link to principal
+  if (principal.sessionId.startsWith('apikey:')) {
+    await db
+      .prepare('INSERT OR IGNORE INTO api_key_inboxes (api_key_id, inbox_address) VALUES (?, ?)')
+      .bind(parseInt(principal.sessionId.slice(7), 10), address)
+      .run();
+  } else {
+    await db
+      .prepare('INSERT OR IGNORE INTO session_inboxes (session_id, inbox_address) VALUES (?, ?)')
+      .bind(principal.sessionId, address)
+      .run();
+  }
 
   return c.json({ address, domain, ttlHours });
 });
@@ -115,15 +261,12 @@ api.post('/inboxes', async (c) => {
 api.get('/inboxes/:address/messages', async (c) => {
   const db = c.env.DB;
   const address = c.req.param('address');
-  const sid = c.req.header('x-session-id');
+  const principal = await getPrincipal(c);
 
-  // Require session ownership of this inbox (privacy: temp mail harus private)
-  if (!sid) return c.json({ error: 'x-session-id header required' }, 401);
-  const owned = await db
-    .prepare('SELECT 1 FROM session_inboxes WHERE session_id = ? AND inbox_address = ?')
-    .bind(sid, address)
-    .first();
-  if (!owned) return c.json({ error: 'inbox not found' }, 404);
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+  if (!(await ownsInbox(c, principal, address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
 
   const rows = await db
     .prepare(
@@ -169,6 +312,151 @@ api.get('/inboxes/:address/messages', async (c) => {
   return c.json(messages);
 });
 
+// ---- GET /api/inboxes/:address/search?q= (inbox search) ----
+api.get('/inboxes/:address/search', async (c) => {
+  const db = c.env.DB;
+  const address = c.req.param('address');
+  const q = (c.req.query('q') || '').trim();
+  const principal = await getPrincipal(c);
+
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+  if (!(await ownsInbox(c, principal, address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
+  if (!q || q.length < 2) {
+    return c.json({ error: 'q parameter required (min 2 chars)' }, 400);
+  }
+
+  const like = `%${q
+    .replace(/[\\%_]/g, (m) => `\\${m}`)
+    .toLowerCase()}%`;
+
+  const rows = await db
+    .prepare(
+      `SELECT id, subject, from_address, from_name, received_at
+       FROM messages
+       WHERE inbox_address = ? AND (
+         LOWER(subject) LIKE ? ESCAPE '\\' OR
+         LOWER(body) LIKE ? ESCAPE '\\' OR
+         LOWER(from_address) LIKE ? ESCAPE '\\'
+       )
+       ORDER BY received_at DESC
+       LIMIT 50`
+    )
+    .bind(address, like, like, like)
+    .all<{ id: string; subject: string; from_address: string; from_name: string; received_at: string }>();
+
+  return c.json(rows.results);
+});
+
+// ---- POST /api/inboxes/:address/webhooks (subscribe) ----
+api.post('/inboxes/:address/webhooks', async (c) => {
+  const db = c.env.DB;
+  const address = c.req.param('address');
+  const principal = await getPrincipal(c);
+
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+  if (!(await ownsInbox(c, principal, address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
+
+  let body: z.infer<typeof webhookSchema>;
+  try {
+    const raw = await c.req.text();
+    body = webhookSchema.parse(raw ? JSON.parse(raw) : {});
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return c.json({ error: 'invalid body', details: err.issues.map((i) => i.message) }, 400);
+    }
+    return c.json({ error: 'invalid JSON body' }, 400);
+  }
+
+  const res = await db
+    .prepare('INSERT INTO webhooks (inbox_address, url, secret, events) VALUES (?, ?, ?, ?)')
+    .bind(address, body.url, body.secret, body.events)
+    .run();
+
+  return c.json({ id: res.meta.last_row_id, inbox_address: address, url: body.url, events: body.events }, 201);
+});
+
+// ---- GET /api/inboxes/:address/webhooks (list subscriptions) ----
+api.get('/inboxes/:address/webhooks', async (c) => {
+  const db = c.env.DB;
+  const address = c.req.param('address');
+  const principal = await getPrincipal(c);
+
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+  if (!(await ownsInbox(c, principal, address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
+
+  const rows = await db
+    .prepare('SELECT id, url, events, created_at FROM webhooks WHERE inbox_address = ? ORDER BY id DESC')
+    .bind(address)
+    .all<{ id: number; url: string; events: string; created_at: string }>();
+
+  return c.json(rows.results);
+});
+
+// ---- DELETE /api/inboxes/:address/webhooks/:id (remove subscription) ----
+api.delete('/inboxes/:address/webhooks/:id', async (c) => {
+  const db = c.env.DB;
+  const address = c.req.param('address');
+  const id = parseInt(c.req.param('id'), 10);
+  const principal = await getPrincipal(c);
+
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+  if (!(await ownsInbox(c, principal, address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
+  if (!id) return c.json({ error: 'invalid webhook id' }, 400);
+
+  await db.prepare('DELETE FROM webhooks WHERE id = ? AND inbox_address = ?').bind(id, address).run();
+  return c.json({ deleted: true });
+});
+
+// ---- GET /api/messages/:id/attachments/:filename (R2 download) ----
+api.get('/messages/:id/attachments/:filename', async (c) => {
+  const db = c.env.DB;
+  const id = c.req.param('id');
+  const filename = c.req.param('filename');
+  const principal = await getPrincipal(c);
+
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+
+  // Find the attachment + its inbox for ownership
+  const att = await db
+    .prepare(
+      `SELECT a.filename, a.content_type, a.size, a.r2_key, m.inbox_address
+       FROM attachments a
+       JOIN messages m ON m.id = a.message_id
+       WHERE a.message_id = ? AND a.filename = ?`
+    )
+    .bind(id, filename)
+    .first<{ filename: string; content_type: string; size: number; r2_key: string; inbox_address: string }>();
+
+  if (!att) return c.json({ error: 'attachment not found' }, 404);
+  if (!(await ownsInbox(c, principal, att.inbox_address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
+
+  // If R2 has the object, stream it; else 410 (metadata-only)
+  if (c.env.ATTACHMENTS && att.r2_key) {
+    const obj = await c.env.ATTACHMENTS.get(att.r2_key);
+    if (obj) {
+      return new Response(obj.body, {
+        headers: {
+          'Content-Type': att.content_type || 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${att.filename.replace(/"/g, '')}"`,
+          'Cache-Control': 'private, max-age=300',
+        },
+      });
+    }
+  }
+
+  return c.json({ error: 'attachment body not stored (metadata only)', size: att.size }, 410);
+});
+
 // ---- GET /api/inboxes/:address/events (SSE realtime) ----
 api.get('/inboxes/:address/events', async (c) => {
   const address = c.req.param('address');
@@ -178,11 +466,18 @@ api.get('/inboxes/:address/events', async (c) => {
 // ---- DELETE /api/inboxes/:address ----
 api.delete('/inboxes/:address', async (c) => {
   const db = c.env.DB;
-  const sid = c.req.header('x-session-id');
+  const principal = await getPrincipal(c);
   const address = c.req.param('address');
-  if (!sid) return c.json({ error: 'x-session-id header required' }, 401);
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
 
-  await db.prepare('DELETE FROM session_inboxes WHERE session_id = ? AND inbox_address = ?').bind(sid, address).run();
+  if (principal.sessionId.startsWith('apikey:')) {
+    await db
+      .prepare('DELETE FROM api_key_inboxes WHERE api_key_id = ? AND inbox_address = ?')
+      .bind(parseInt(principal.sessionId.slice(7), 10), address)
+      .run();
+  } else {
+    await db.prepare('DELETE FROM session_inboxes WHERE session_id = ? AND inbox_address = ?').bind(principal.sessionId, address).run();
+  }
   return c.json({ deleted: true });
 });
 
