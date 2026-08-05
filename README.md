@@ -1,48 +1,145 @@
 # 🥢 TempeMail
 
-> Zero-config multi-domain disposable email on Cloudflare Workers.
+> **Zero-config, multi-domain disposable email on Cloudflare Workers.**
 
-Deploy a temporary email service in minutes. One worker handles everything — web UI, REST API, inbound email delivery, and automatic provisioning. No VPS. No Docker. No SMTP.
+[![CI](https://github.com/ghufronainun/tempe-mail/actions/workflows/ci.yml/badge.svg)](https://github.com/ghufronainun/tempe-mail/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-4.105-orange?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/ghufronainun/tempe-mail/pulls)
+
+TempeMail is a self-hosted disposable email service that runs entirely on the Cloudflare edge — no VPS, no Docker, no SMTP server. One worker handles the web UI, REST API, inbound email delivery, and automatic provisioning.
+
+Deploy in minutes with **3 environment values**:
 
 ```bash
-cp .env.example .env   # fill 3 values
-npm run setup          # provisions everything
-npx wrangler deploy    # go live
+git clone https://github.com/ghufronainun/tempe-mail.git
+cd tempe-mail
+npm install
+cp .env.example .env      # fill 3 values
+npm run setup              # provisions everything automatically
+npx wrangler deploy        # go live 🚀
 ```
+
+---
+
+## Table of Contents
+
+- [Why TempeMail?](#why-tempe-mail)
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Quick Start](#quick-start)
+- [Development](#development)
+- [Project Structure](#project-structure)
+- [API Reference](#api-reference)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
 ## Why TempeMail?
 
-| | TempeMail | tempik | inbix |
+| Feature | **TempeMail** | tempik | inbix |
 |---|---|---|---|
 | Multi-domain | ✅ | ❌ | ❌ |
-| Zero-config setup | ✅ automated | ❌ manual | ❌ manual |
+| Zero-config setup | ✅ automated | ❌ manual toml | ❌ manual wiki |
 | HTML email render | ✅ | ❌ | ✅ |
 | OTP auto-highlight | ✅ | ❌ | ❌ |
 | SPF/DKIM/DMARC viewer | ✅ | ❌ | ❌ |
 | Semantic tags | ✅ | ❌ | ❌ |
 | Custom address | ✅ | ❌ | ❌ |
+| Deliverability diagnostics | ✅ | ❌ | ❌ |
 | Self-hosted | ✅ | ✅ | ✅ |
 | Cloudflare free tier | ✅ | ✅ | ✅ |
+| No VPS / Docker / SMTP | ✅ | ✅ | ✅ |
+
+Most temp-mail projects support a single domain and require manual configuration. TempeMail's combination of **zero-config provisioning**, **multi-domain support**, and **deliverability diagnostics** is unique in the ecosystem.
 
 ---
 
 ## Features
 
-- **Zero-config setup** — `npm run setup` provisions D1, Email Routing, zone catch-all rules, and renders `wrangler.toml` automatically
-- **Multi-domain** — serve disposable inboxes across 1 or N domains
-- **HTML email rendering** — full HTML email support in sandboxed iframes
-- **OTP auto-highlight** — verification codes are automatically detected and displayed prominently
-- **Semantic tagging** — emails are classified as 🔑 Verification, 🔒 Security, 🧪 Testing, or 📣 Marketing
-- **SPF/DKIM/DMARC viewer** — inspect deliverability headers for every message (useful for QA/testing)
-- **Custom addresses** — choose your own local part or generate random addresses
-- **Auto-expire** — inboxes expire after a configurable TTL (default 24h)
-- **RSS feeds** — every inbox has a public RSS feed (agent-friendly, no API key needed)
-- **Realtime updates** — new messages appear via SSE without refreshing
-- **Starred messages** — pin important emails
-- **i18n** — English and Bahasa Indonesia
-- **Dark mode** — by default, with toggle
+### 📬 Core
+- **Zero-config setup** — `npm run setup` provisions D1, Email Routing, zone catch-all rules, and renders `wrangler.toml` automatically. Idempotent — safe to re-run anytime.
+- **Multi-domain** — serve disposable inboxes across 1 or N domains from a single worker. `DOMAINS=mail.example.com,mail2.example.net` and you're done.
+- **HTML email rendering** — full HTML email support, rendered safely in a sandboxed iframe (`sandbox=""`). Email looks exactly as the sender designed it.
+- **OTP auto-highlight** — verification codes (4–8 digit) are automatically detected and displayed prominently in monospace, so you never hunt for the code.
+- **Semantic tagging** — emails are auto-classified into 🔑 Verification, 🔒 Security, 🧪 Testing, or 📣 Marketing based on subject and sender.
+- **SPF/DKIM/DMARC viewer** — inspect `Received-SPF` and `Authentication-Results` headers for every message. Gold for QA and email deliverability testing.
+
+### 🎛️ UX
+- **Custom addresses** — choose your own local part (`myalias@domain.com`) or let TempeMail generate a random one.
+- **Auto-expire** — inboxes expire after a configurable TTL (default 24h, range 1h–168h).
+- **Attachment metadata** — file name, type, and size shown as chips.
+- **Starred messages** — pin important emails, persisted in localStorage.
+- **Filter chips** — quickly filter All / Verification / Starred.
+- **Realtime updates** — new messages appear instantly via SSE (Durable Objects).
+- **Dark mode** — beautiful dark-first UI with light toggle.
+- **i18n** — English and Bahasa Indonesia, toggle in one click.
+- **Fully responsive** — mobile-first, breakpoints at 900px and 680px.
+
+### 🤖 Developer / AI-agent friendly
+- **REST API** — full JSON API for scripts and automation.
+- **RSS feed per inbox** — `GET /inboxes/:address/feed.xml` requires no auth (the address itself is the secret). Poll it from any script.
+- **SSE stream per inbox** — realtime push to any client.
+- **AGENTS.md** — onboarding guide so AI coding agents can work on this repo immediately.
+
+---
+
+## How it works
+
+```
+Sender
+  │
+  ▼
+Cloudflare MX
+  │  (Email Routing → Worker)
+  ▼
+Worker email() handler
+  │  PostalMime parses MIME
+  │  (text + html + headers + attachments)
+  ▼
+D1 Database (SQLite)
+  ├─ inboxes      (address, expires_at)
+  ├─ messages     (body, body_html, spf, dkim, dmarc, ...)
+  ├─ attachments  (filename, content_type, size)
+  └─ sessions     (browser session ↔ inbox ownership)
+  │
+  ┌────┴────┐
+  ▼         ▼
+REST API   Web UI (static assets)
+  │         ├─ index.html
+  ├─ /api/session          └─ app.js (vanilla JS, no framework)
+  ├─ /api/inboxes
+  ├─ /api/inboxes/:addr/messages
+  ├─ /api/inboxes/:addr/feed.xml   (RSS)
+  └─ /api/inboxes/:addr/events     (SSE)
+```
+
+**The flow:**
+1. Sender emails `anything@yourdomain.com`
+2. Cloudflare Email Routing delivers to the Worker's `email()` handler
+3. PostalMime parses the MIME — extracts text, HTML, headers, attachments, deliverability status
+4. Data is stored in D1; the inbox is auto-created if it doesn't exist
+5. Subscribers listening via SSE get a realtime push
+6. Web UI polls or streams and renders everything with OTP highlight + semantic tags
+
+### Tech stack
+
+| Layer | Technology |
+|---|---|
+| Runtime | Cloudflare Workers (edge) |
+| Language | TypeScript 5.5 (strict) |
+| HTTP router | Hono v4 |
+| Email parsing | PostalMime v2 |
+| Validation | Zod v3 |
+| Database | Cloudflare D1 (SQLite) |
+| Realtime | Durable Objects (SSE) |
+| Frontend | Vanilla JS (zero framework) |
+| Testing | Vitest |
 
 ---
 
@@ -50,9 +147,9 @@ npx wrangler deploy    # go live
 
 ### Prerequisites
 
-- A Cloudflare account
-- A domain managed by Cloudflare DNS
-- Node.js 18+
+- A [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier is enough)
+- At least one domain managed by Cloudflare DNS
+- Node.js 18+ and npm
 
 ### 1. Clone & install
 
@@ -64,8 +161,6 @@ npm install
 
 ### 2. Configure
 
-Copy the environment template and fill in your values:
-
 ```bash
 cp .env.example .env
 ```
@@ -73,48 +168,101 @@ cp .env.example .env
 Edit `.env` — only 3 values are required:
 
 ```env
-CLOUDFLARE_API_TOKEN=...
-CLOUDFLARE_ACCOUNT_ID=...
-DOMAINS=mail.example.com
-WEB_HOST=temp.example.com
+CLOUDFLARE_API_TOKEN=your_cf_api_token     # Workers + D1 + Email Routing + Zone permissions
+CLOUDFLARE_ACCOUNT_ID=your_account_id      # dashboard → Workers & Pages → account ID
+DOMAINS=mail.example.com                   # one or more, comma-separated
+WEB_HOST=temp.example.com                  # subdomain for the web UI
 ```
+
+> **Multi-domain?** Just add more: `DOMAINS=mail.example.com,mail2.example.net,mail3.example.org`
 
 ### 3. Setup & deploy
 
 ```bash
-npm run setup    # provisions D1 + Email Routing + wrangler config
-npx wrangler deploy
+npm run setup        # creates D1, applies schema, enables Email Routing,
+                     # sets catch-all → worker for every domain, renders wrangler.toml
+npx wrangler deploy  # pushes the worker + static assets to the edge
 ```
 
-Open your `WEB_HOST` URL and start receiving email.
+Open `https://temp.example.com` and start receiving email. 🎉
+
+**Expected setup output:**
+```
+📦 Setting up D1 database...
+   Created D1 database: 12345678-...
+📋 Applying schema...
+   Schema applied.
+🌐 Discovering zone IDs...
+   mail.example.com → zone abcdef...
+📧 Provisioning Email Routing...
+   mail.example.com: catch-all → worker:tempe-mail (enabled)
+📝 Rendering wrangler.toml...
+   wrangler.toml rendered.
+
+✅ Setup complete!
+   1. Review wrangler.toml
+   2. Run: npx wrangler deploy
+   3. Open: https://temp.example.com
+```
 
 ---
 
-## Architecture
+## Development
 
-```
-Sender → Cloudflare MX → Worker email() handler
-                              │
-                    PostalMime parse (text + html + headers)
-                              │
-                         D1 Database
-                              │
-                  ┌───────────┴───────────┐
-                  │                       │
-            REST API (Hono)         Web UI (static assets)
-          /api/session               index.html
-          /api/inboxes               app.js (vanilla)
-          /api/inboxes/:addr/msgs     dark theme
-          /api/inboxes/:addr/feed.xml
-          /api/inboxes/:addr/events (SSE)
+```bash
+npm run dev           # applies schema to local D1, then starts wrangler dev (port 8787)
+npm test              # run all 77 tests (Vitest)
+npm run typecheck     # strict TypeScript check
 ```
 
-- **Cloudflare Workers** — edge runtime
-- **Hono** — HTTP router (REST API)
-- **PostalMime** — MIME email parsing
-- **D1** — SQLite database (inboxes, messages, attachments)
-- **Vanilla JS** — zero-framework frontend
-- **Durable Objects** — SSE realtime rooms
+Local dev guide:
+1. `npm run dev` — starts the worker locally at `http://localhost:8787`
+2. The D1 schema is **applied automatically** to the local database on startup (no more `no such table` errors)
+3. Inbound email is simulated via unit/E2E tests (`tests/email-handler-e2e.test.ts`)
+4. The scheduled purge trigger can be fired manually: `curl "http://localhost:8787/cdn-cgi/local/scheduled"`
+
+> `wrangler dev` is for development only. Production runs on Cloudflare's edge via `wrangler deploy` — your machine/VPS is completely uninvolved.
+
+---
+
+## Project Structure
+
+```
+tempe-mail/
+├── src/
+│   ├── index.ts                 # Worker entry: fetch() + email() + scheduled purge
+│   ├── env.ts                   # Environment bindings interface
+│   ├── email/
+│   │   ├── ingest.ts            # MIME parsing (PostalMime) → text/html/headers/attachments
+│   │   └── headers.ts           # SPF/DKIM/DMARC extraction from raw headers
+│   ├── api/
+│   │   ├── routes.ts            # Hono REST API (session, inboxes, messages)
+│   │   ├── rss.ts               # Per-inbox RSS 2.0 feeds
+│   │   ├── tagging.ts           # Semantic classifier (content rules)
+│   │   └── realtime.ts          # SSE endpoint → Durable Object
+│   ├── cf/
+│   │   ├── zones-loader.ts      # CF_ZONE_MAP env → domain→zone map
+│   │   └── routing.ts           # Email Routing provisioning (setup-time)
+│   ├── db/
+│   │   ├── schema.sql           # D1 schema (inboxes, messages, attachments, sessions)
+│   │   └── realtime-room.ts     # Durable Object: SSE room per inbox
+│   └── web/                     # Frontend (vanilla, dark theme)
+│       ├── index.html
+│       ├── app.js               # Rendering, polling/SSE, OTP, tags, i18n
+│       ├── styles.css           # Responsive, dark/light, 3 breakpoints
+│       └── i18n/{en,id}.js      # String dictionaries
+├── scripts/
+│   ├── setup.mjs                # Zero-config provisioning script
+│   └── dev.mjs                  # Dev helper (auto-schema + wrangler dev)
+├── tests/                       # Vitest: 5 files, 77 tests
+├── .github/workflows/ci.yml     # CI: typecheck + tests on push/PR
+├── .env.example                 # Environment template
+├── wrangler.toml                # Generated by setup (placeholders committed)
+├── README.md
+├── AGENTS.md                    # AI-agent onboarding guide
+├── API.md                       # Full API reference
+└── LICENSE                      # MIT
+```
 
 ---
 
@@ -122,41 +270,102 @@ Sender → Cloudflare MX → Worker email() handler
 
 ### Authentication
 
-Browser sessions via `x-session-id` header. Create one with `POST /api/session`.
+Browser sessions via `x-session-id` header. Create one:
+
+```http
+POST /api/session
+→ { "sessionId": "uuid-v4" }
+```
+
+All inbox/message endpoints require the header. Inbox ownership is enforced — you can only read messages from inboxes your session owns.
 
 ### Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/config` | App config (name, domains) |
-| `POST` | `/api/session` | Create browser session |
-| `GET` | `/api/inboxes` | List active inboxes (needs session header) |
-| `POST` | `/api/inboxes` | Create inbox (optional: localPart, domain, ttlHours) |
-| `GET` | `/api/inboxes/:address/messages` | List messages with attachments + tags + deliverability |
-| `DELETE` | `/api/inboxes/:address` | Remove inbox from session |
-| `GET` | `/api/inboxes/:address/feed.xml` | RSS feed (public) |
-| `GET` | `/api/inboxes/:address/events` | SSE stream (public) |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/config` | — | App config (name, domains) |
+| `POST` | `/api/session` | — | Create browser session |
+| `GET` | `/api/inboxes` | session | List active inboxes |
+| `POST` | `/api/inboxes` | session | Create inbox (`localPart`, `domain`, `ttlHours`) |
+| `GET` | `/api/inboxes/:address/messages` | session | List messages + tags + deliverability + attachments |
+| `DELETE` | `/api/inboxes/:address` | session | Unlink inbox from session |
+| `GET` | `/api/inboxes/:address/feed.xml` | public | RSS 2.0 feed (address = secret) |
+| `GET` | `/api/inboxes/:address/events` | public | SSE realtime stream |
 
-Detailed API reference in [API.md](./API.md).
+### Example: create inbox
+
+```bash
+curl -X POST https://temp.example.com/api/inboxes \
+  -H "x-session-id: <sessionId>" \
+  -H "Content-Type: application/json" \
+  -d '{"localPart": "myalias", "ttlHours": 48}'
+```
+
+```json
+{
+  "address": "myalias@mail.example.com",
+  "domain": "mail.example.com",
+  "ttlHours": 48
+}
+```
+
+Full reference: [API.md](./API.md)
 
 ---
 
 ## Configuration
 
-| `.env` variable | Required | Description |
-|---|---|---|
-| `CLOUDFLARE_API_TOKEN` | ✅ | CF API token (Workers, D1, Email Routing, Zone permissions) |
-| `CLOUDFLARE_ACCOUNT_ID` | ✅ | Your Cloudflare account ID |
-| `DOMAINS` | ✅ | Comma-separated mail domains |
-| `WEB_HOST` | ✅ | Subdomain for the web UI |
-| `APP_NAME` | ❌ | App name in UI (default: TempeMail) |
-| `ADMIN_KEY` | ❌ | Key for maintenance endpoints |
-| `CF_ZONE_MAP` | ❌ | Manual domain→zone mapping (auto-discovered by setup) |
+| `.env` variable | Required | Default | Description |
+|---|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | ✅ | — | CF API token (Workers Scripts, D1, Email Routing, Zone:Edit) |
+| `CLOUDFLARE_ACCOUNT_ID` | ✅ | — | Cloudflare account ID |
+| `DOMAINS` | ✅ | — | Comma-separated mail domains (first = default) |
+| `WEB_HOST` | ✅ | — | Subdomain for the web UI (must be in a zone you own) |
+| `APP_NAME` | ❌ | `TempeMail` | App name shown in the UI |
+| `ADMIN_KEY` | ❌ | `change-me` | Key guarding maintenance endpoints |
+| `CF_ZONE_MAP` | ❌ | auto | Manual `domain=zone_id` map (auto-discovered by setup) |
+
+All values are read at setup time. Secrets stay in `.env` (gitignored) — never commit them.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `no such table` in local dev | Run `npm run dev` (auto-applies schema). Or: `npx wrangler d1 execute tempe-mail-db --local --file=src/db/schema.sql` |
+| Email not arriving | Verify Email Routing is enabled on the zone: dashboard → Email → Email Routing. Check catch-all rule points to `tempe-mail` worker |
+| Setup says "zone not found" | The domain must be added to Cloudflare with DNS managed there (`ns.cloudflare.net` nameservers) |
+| Catch-all rejected by CF API | Some zones need the catch-all set manually in the dashboard. The setup script falls back to exact-rule provisioning |
+| Deploy fails on custom domain | Ensure the subdomain (`WEB_HOST`) is created as a zone/custom hostname first, or use `workers.dev` route temporarily |
+| `[email]` field warning in wrangler | Harmless — Email Worker bindings are configured via the dashboard/API, not wrangler.toml |
+
+---
+
+## Roadmap
+
+See [AGENTS.md](./AGENTS.md) and the plan document for details. Planned:
+
+- [ ] REST API key authentication (no browser session needed)
+- [ ] Webhooks (POST to a URL on new mail)
+- [ ] MCP server (Model Context Protocol) for AI agents
+- [ ] Full attachment download (R2 storage)
+- [ ] Inbox search
+
+---
+
+## Contributing
+
+Contributions are welcome! Open an issue or PR.
+
+- All code must pass: `npm run typecheck` and `npm test`
+- Follow existing structure and conventions (see [AGENTS.md](./AGENTS.md))
+- No external frontend frameworks — frontend is vanilla JS by design
 
 ---
 
 ## License
 
-MIT © 2026 masantoid, TempeMail contributors.
+[MIT](./LICENSE) © 2026 masantoid, TempeMail contributors.
 
-Derived from [hirotomasato/tempik](https://github.com/hirotomasato/tempik). TempeMail has been rewritten from scratch with multi-domain support, deliverability diagnostics, zero-config provisioning, and an original UI.
+Derived from [hirotomasato/tempik](https://github.com/hirotomasato/tempik). TempeMail has been rewritten from scratch with multi-domain support, deliverability diagnostics, zero-config provisioning, and an original UI. This project is distributed under the MIT License — see the LICENSE file for the full text.
