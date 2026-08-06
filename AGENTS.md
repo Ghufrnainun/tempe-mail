@@ -84,9 +84,16 @@ Never hardcode:
 - Domain names (use placeholders in public files)
 - Zone IDs
 
-## Roadmap (Phase 2)
+## Roadmap (Phase 2 — done)
 
-- REST API key authentication
-- Webhook support (POST on new email)
-- MCP server (Model Context Protocol) for AI agent integration
-- Attachment download via R2
+- ✅ REST API key authentication
+- ✅ Webhook support (POST on new email, HMAC-signed)
+- ✅ MCP server (Model Context Protocol) for AI agent integration
+- ✅ Attachment download via R2
+- ✅ Inbox search
+
+## Community files
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute (quality gate, conventions)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — behavior expectations
+- [SECURITY.md](SECURITY.md) — how to report vulnerabilities

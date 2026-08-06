@@ -158,7 +158,38 @@ cd tempe-mail
 npm install
 ```
 
-### 2. Configure
+### 2. Get your Cloudflare credentials
+
+You need two things from Cloudflare: **an API token** and **your account ID**.
+
+#### Create an API token
+
+1. Go to the [Cloudflare dashboard](https://dash.cloudflare.com/) and log in
+2. Click your profile icon (top-right) → **My Profile** → **API Tokens**
+3. Click **Create Token**
+4. Choose **Create Custom Token** (or use the "Edit zone DNS" template as a starting point)
+5. Give the token a name like `tempe-mail`
+6. Add these permissions (all needed for one-command provisioning):
+   - **Account → Workers Scripts → Edit**
+   - **Account → Workers D1 → Edit**
+   - **Account → Email Routing Addresses → Edit**
+   - **Account → Email Routing Rules → Edit**
+   - **Zone → Zone → Read** (for all zones that host your mail domains)
+   - **Zone → DNS → Edit** (optional, for automatic DNS records)
+7. Under **Zone Resources**, choose **All zones** (or select the specific zones you'll use)
+8. Click **Continue to summary** → **Create Token**
+9. **Copy the token immediately** — it's shown only once. It looks like `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+
+> ⚠️ Treat this token like a password. Anyone with it can modify your Cloudflare resources. It is stored in `.env` (gitignored) — never commit it.
+
+#### Find your Account ID
+
+1. Go to the [Cloudflare dashboard](https://dash.cloudflare.com/)
+2. Look at the sidebar on the left — your **Account ID** is listed right below "Workers & Pages"
+3. Alternatively: click any domain → scroll down in the right sidebar → "Account ID"
+4. It's a 32-character hex string like `0d230badba741f9b49d8229680d7254a`
+
+### 3. Configure
 
 ```bash
 cp .env.example .env
@@ -175,7 +206,7 @@ WEB_HOST=temp.example.com                  # subdomain for the web UI
 
 > **Multi-domain?** Just add more: `DOMAINS=mail.example.com,mail2.example.net,mail3.example.org`
 
-### 3. Setup & deploy
+### 4. Setup & deploy
 
 ```bash
 npm run setup        # creates D1, applies schema, enables Email Routing,
@@ -203,6 +234,37 @@ Open `https://temp.example.com` and start receiving email. 🎉
    2. Run: npx wrangler deploy
    3. Open: https://temp.example.com
 ```
+
+### Optional: manual setup (if the script hits permission limits)
+
+If your API token lacks D1 or Email Routing permissions, `npm run setup` may skip those steps. You can do them manually:
+
+1. **Create the D1 database:**
+   ```bash
+   npx wrangler d1 create tempe-mail-db
+   ```
+   Copy the `database_id` from the output.
+
+2. **Apply the schema:**
+   ```bash
+   npx wrangler d1 execute tempe-mail-db --remote --file=src/db/schema.sql
+   ```
+
+3. **Create the R2 bucket** (optional — for attachment downloads):
+   ```bash
+   npx wrangler r2 bucket create tempe-mail-attachments
+   ```
+
+4. **Fill in `wrangler.toml`:** replace the `REPLACED_BY_SETUP` placeholders with your real database ID and routes, and uncomment the `[[r2_buckets]]` block.
+
+5. **Enable Email Routing in the dashboard:** Cloudflare dashboard → your domain → **Email** → **Email Routing** → enable it, add a catch-all rule pointing to the `tempe-mail` worker.
+
+6. **Deploy:**
+   ```bash
+   npx wrangler deploy
+   ```
+
+> Note: Email Worker bindings (`[email]`) are always configured via the dashboard/API — not wrangler.toml. That's why `wrangler` may warn about the `email` field; it's harmless.
 
 ---
 
@@ -363,9 +425,11 @@ See [AGENTS.md](./AGENTS.md) and the plan document for details.
 
 Contributions are welcome! Open an issue or PR.
 
+- Start with [CONTRIBUTING.md](./CONTRIBUTING.md) — setup, conventions, quality gate
 - All code must pass: `npm run typecheck` and `npm test`
-- Follow existing structure and conventions (see [AGENTS.md](./AGENTS.md))
-- No external frontend frameworks — frontend is vanilla JS by design
+- Follow the [Code of Conduct](./CODE_OF_CONDUCT.md)
+- Found a vulnerability? See [SECURITY.md](./SECURITY.md) — please report privately
+- Use the issue/PR templates in `.github/`
 
 ---
 
