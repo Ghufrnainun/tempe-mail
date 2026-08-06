@@ -401,6 +401,8 @@ Full reference: [API.md](./API.md)
 | `APP_NAME` | ❌ | `TempeMail` | App name shown in the UI |
 | `ADMIN_KEY` | ❌ | `change-me` | Key guarding maintenance endpoints |
 | `CF_ZONE_MAP` | ❌ | auto | Manual `domain=zone_id` map (auto-discovered by setup) |
+| `RSS_PUBLIC` | ❌ | `true` | Set `false` to require `?token=` (SHA-1 of address) for RSS feeds |
+| `MAX_INBOXES_PER_SESSION` | ❌ | unlimited | Cap inboxes per session/API key (simple rate limit; e.g. `50`) |
 
 All values are read at setup time. Secrets stay in `.env` (gitignored) — never commit them.
 
