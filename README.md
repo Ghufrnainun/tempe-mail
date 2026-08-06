@@ -172,10 +172,12 @@ You need two things from Cloudflare: **an API token** and **your account ID**.
 6. Add these permissions (all needed for one-command provisioning):
    - **Account → Workers Scripts → Edit**
    - **Account → Workers D1 → Edit**
+   - **Account → Workers R2 Storage → Edit**
    - **Account → Email Routing Addresses → Edit**
    - **Account → Email Routing Rules → Edit**
    - **Zone → Zone → Read** (for all zones that host your mail domains)
    - **Zone → DNS → Edit** (optional, for automatic DNS records)
+   - **Zone → Email Routing → Edit**
 7. Under **Zone Resources**, choose **All zones** (or select the specific zones you'll use)
 8. Click **Continue to summary** → **Create Token**
 9. **Copy the token immediately** — it's shown only once. It looks like `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
