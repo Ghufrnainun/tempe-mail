@@ -187,7 +187,7 @@ You need two things from Cloudflare: **an API token** and **your account ID**.
 1. Go to the [Cloudflare dashboard](https://dash.cloudflare.com/)
 2. Look at the sidebar on the left — your **Account ID** is listed right below "Workers & Pages"
 3. Alternatively: click any domain → scroll down in the right sidebar → "Account ID"
-4. It's a 32-character hex string like `0d230badba741f9b49d8229680d7254a`
+4. It's a 32-character hex string like `a1b2c3d4e5f60718293a4b5c6d7e8f90`
 
 ### 3. Configure
 

@@ -270,13 +270,17 @@ The repo ships an MCP server implementing the Model Context Protocol (stdio tran
 ```bash
 TEMPEMAIL_BASE_URL=https://temp.example.com \
 TEMPEMAIL_API_KEY=tmk_... \
-npx tsx src/api/mcp.ts
+npm run mcp
 ```
 
 ### Register with Claude Code
 
 ```bash
-claude mcp add tempe-mail -- node /path/to/tempe-mail/src/api/mcp.ts
+claude mcp add tempe-mail -- npm run mcp --prefix /path/to/tempe-mail
+```
+or for a global server:
+```bash
+claude mcp add --transport stdio tempe-mail -- node /path/to/tempe-mail/node_modules/.bin/tsx /path/to/tempe-mail/src/api/mcp.ts
 ```
 
 ---
