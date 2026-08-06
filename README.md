@@ -2,7 +2,7 @@
 
 > **Zero-config, multi-domain disposable email on Cloudflare Workers.**
 
-[![CI](https://github.com/ghufronainun/tempe-mail/actions/workflows/ci.yml/badge.svg)](https://github.com/ghufronainun/tempe-mail/actions/workflows/ci.yml)
+[![CI](https://github.com/Ghufrnainun/tempe-mail/actions/workflows/ci.yml/badge.svg)](https://github.com/Ghufrnainun/tempe-mail/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare%20Workers-4.105-orange?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)

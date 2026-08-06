@@ -1,6 +1,6 @@
 {
   "name": "tempe-mail",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Zero-config multi-domain disposable email on Cloudflare Workers",
   "engines": {
@@ -24,7 +24,10 @@
     "@types/node": "^26.1.2",
     "tsx": "^4.23.8",
     "typescript": "^5.5.0",
-    "vitest": "^2.0.0",
-    "wrangler": "^4.105.0"
+    "vitest": "^3.2.7",
+    "wrangler": "^4.35.0"
+  },
+  "overrides": {
+    "undici": "^7.29.0"
   }
 }
