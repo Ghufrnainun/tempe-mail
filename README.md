@@ -1,5 +1,9 @@
 # 🥢 TempeMail
 
+<p align="center">
+  <img src="assets/logo.png" alt="TempeMail logo" width="120" />
+</p>
+
 > **Zero-config, multi-domain disposable email on Cloudflare Workers.**
 
 [![CI](https://github.com/Ghufrnainun/tempe-mail/actions/workflows/ci.yml/badge.svg)](https://github.com/Ghufrnainun/tempe-mail/actions/workflows/ci.yml)
