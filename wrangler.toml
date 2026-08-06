@@ -30,20 +30,20 @@ new_sqlite_classes = ["RealtimeRoom"]
 # [[r2_buckets]]
 # binding = "ATTACHMENTS"
 # bucket_name = "tempe-mail-attachments"
-# preview_url = "REPLACED_BY_SETUP"
+# preview_url = "temp.atminku.my.id"
 
-# Custom domain route — populated by setup
+# Custom domain route — populated by setup (web UI host, NOT the mail domain)
 [[routes]]
-pattern = "REPLACED_BY_SETUP"
+pattern = "temp.atminku.my.id"
 custom_domain = true
 
 # Environment variables — populated by setup
 [vars]
 APP_NAME = "TempeMail"
-MAIL_DOMAIN = "REPLACED_BY_SETUP"
-WEB_HOST = "REPLACED_BY_SETUP"
+MAIL_DOMAIN = "atminku.my.id"
+WEB_HOST = "temp.atminku.my.id"
 WORKER_NAME = "tempe-mail"
-CF_ZONE_MAP = "REPLACED_BY_SETUP"
+CF_ZONE_MAP = "atminku.my.id=REPLACED_BY_SETUP"
 
 # Static assets (web UI)
 [assets]

@@ -116,11 +116,14 @@ async function applySchema(databaseId, accountId, token) {
   const schemaPath = resolve(ROOT, 'src/db/schema.sql');
   const schema = readFileSync(schemaPath, 'utf-8');
 
-  // Split into individual statements (D1 API accepts multiple via ; separator)
+  // Strip comment lines first (a split chunk starting with '--' would
+  // otherwise be filtered out along with its CREATE TABLE statement),
+  // then split into individual statements for the D1 query API.
   const statements = schema
+    .replace(/^\s*--.*$/gm, '')
     .split(';')
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith('--'));
+    .filter((s) => s.length > 0);
 
   for (const stmt of statements) {
     try {
@@ -198,26 +201,82 @@ async function enableRouting(zoneId, token) {
   }
 }
 
-async function setCatchAll(zoneId, zoneName, token) {
-  await fetchJson(
-    `https://api.cloudflare.com/client/v4/zones/${zoneId}/email/routing/rules/catch_all`,
-    {
-      method: 'PUT',
-      headers: apiHeaders(token),
-      body: JSON.stringify({
-        enabled: true,
-        matchers: [{ type: 'all' }],
-        actions: [{ type: 'worker', value: ['tempe-mail'] }],
-      }),
+/**
+ * Ensure the domain has a DMARC record (p=none).
+ *
+ * Why: many verification-sender systems (AWS SES, SendGrid, banking/OTP
+ * senders) silently DROP mail to domains without a DMARC record. Without it,
+ * email works "sometimes" — personal Gmail gets through, automated
+ * verification emails never arrive. p=none is the safe default (report-only,
+ * does not reject anything).
+ */
+async function ensureDMARC(zoneId, zoneName, token) {
+  try {
+    // Check existing
+    const existing = await fetchJson(
+      `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?type=TXT&name=_dmarc.${zoneName}`,
+      { headers: apiHeaders(token) }
+    );
+    if (existing?.result?.length > 0) {
+      console.log(`   ${zoneName}: DMARC already present`);
+      return;
     }
-  );
-  console.log(`   ${zoneName}: catch-all → worker:tempe-mail (enabled)`);
+
+    // Create DMARC p=none record
+    await fetchJson(
+      `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`,
+      {
+        method: 'POST',
+        headers: apiHeaders(token),
+        body: JSON.stringify({
+          type: 'TXT',
+          name: '_dmarc',
+          content: `v=DMARC1; p=none; rua=mailto:dmarc@${zoneName}`,
+          ttl: 300,
+        }),
+      }
+    );
+    console.log(`   ${zoneName}: DMARC p=none created (safe default, no rejection)`);
+  } catch (err) {
+    console.warn(
+      `   ⚠️  ${zoneName}: could not create DMARC (${err.message}) — add it manually if automated senders drop your emails`
+    );
+  }
+}
+
+async function setCatchAll(zoneId, zoneName, token) {
+  try {
+    await fetchJson(
+      `https://api.cloudflare.com/client/v4/zones/${zoneId}/email/routing/rules/catch_all`,
+      {
+        method: 'PUT',
+        headers: apiHeaders(token),
+        body: JSON.stringify({
+          enabled: true,
+          matchers: [{ type: 'all' }],
+          actions: [{ type: 'worker', value: ['tempe-mail'] }],
+        }),
+      }
+    );
+    console.log(`   ${zoneName}: catch-all → worker:tempe-mail (enabled)`);
+  } catch (err) {
+    console.warn(
+      `   ⚠️  ${zoneName}: catch-all not set (${err.message}).`
+    );
+    console.warn(
+      `      Deploy the worker first, then re-run setup, or set it manually in the dashboard:`
+    );
+    console.warn(
+      `      Email → Email Routing → Catch-all → Send to Worker → tempe-mail`
+    );
+  }
 }
 
 async function provisionRouting(zoneMap, token) {
   console.log('📧 Provisioning Email Routing...');
   for (const [domain, zoneId] of Object.entries(zoneMap)) {
     await enableRouting(zoneId, token);
+    await ensureDMARC(zoneId, domain, token);
     await setCatchAll(zoneId, domain, token);
   }
 }
@@ -234,11 +293,10 @@ function renderWrangler(env, zoneMap, databaseId) {
     .join(',');
 
   const rendered = template
-    .replace(/"REPLACED_BY_SETUP"/, `"${databaseId}"`)
-    .replace(/"REPLACED_BY_SETUP"/, `"${env.webHost}"`)
-    .replace(/"REPLACED_BY_SETUP"/, `"${env.domains.join(',')}"`)
-    .replace(/"REPLACED_BY_SETUP"/, `"${env.webHost}"`)
-    .replace(/"REPLACED_BY_SETUP"/, `"${zoneMapStr}"`);
+    .replace(/__D1_DATABASE_ID__/g, databaseId)
+    .replace(/__MAIL_DOMAIN__/g, env.domains.join(','))
+    .replace(/__WEB_HOST__/g, env.webHost)
+    .replace(/__CF_ZONE_MAP__/g, zoneMapStr);
 
   writeFileSync(resolve(ROOT, 'wrangler.toml'), rendered);
   console.log('   wrangler.toml rendered.');
@@ -259,13 +317,18 @@ async function main() {
   await applySchema(databaseId, env.accountId, env.token);
 
   const zoneMap = await resolveZoneIds(env.accountId, env.token, env.domains);
+
+  // Render wrangler.toml BEFORE provisioning routing: Email Routing needs the
+  // worker to already exist in production ("Workers Script Info not found"
+  // otherwise). Rendering first lets the user deploy, then re-run setup to
+  // provision routing against the live worker.
+  renderWrangler(env, zoneMap, databaseId);
+
   if (Object.keys(zoneMap).length > 0) {
     await provisionRouting(zoneMap, env.token);
   } else {
     console.warn('   ⚠️  No zone IDs found — Email Routing must be configured manually.');
   }
-
-  renderWrangler(env, zoneMap, databaseId);
 
   console.log('\n✅ Setup complete!');
   console.log('\nNext steps:');

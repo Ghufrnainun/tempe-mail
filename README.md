@@ -83,7 +83,7 @@ What sets it apart from other temp-mail projects:
 - **RSS feed per inbox** — `GET /inboxes/:address/feed.xml` requires no auth (the address itself is the secret). Poll it from any script.
 - **SSE stream per inbox** — realtime push to any client.
 - **Inbox search** — `GET /inboxes/:address/search?q=` searches subject, body, and sender.
-- **Attachment download** — full attachment bodies stored in R2 and downloadable per message.
+- **Attachment download** — *(optional)* full attachment bodies stored in R2 and downloadable per message. Without R2 you still get attachment metadata + the message body; only the file download is skipped.
 - **AGENTS.md** — onboarding guide so AI coding agents can work on this repo immediately.
 
 ---
@@ -236,6 +236,20 @@ Open `https://temp.example.com` and start receiving email. 🎉
    2. Run: npx wrangler deploy
    3. Open: https://temp.example.com
 ```
+
+### Optional: enable R2 attachment downloads
+
+R2 is **optional** — without it TempeMail works fully (metadata + body), only file downloads are skipped. To enable:
+
+1. **Enable R2 in your account:** Cloudflare dashboard → **R2** → **Get started** (free tier available)
+2. Create the bucket:
+   ```bash
+   npx wrangler r2 bucket create tempe-mail-attachments
+   ```
+3. Uncomment the `[[r2_buckets]]` block in `wrangler.toml`, fill in your bucket name, then re-deploy:
+   ```bash
+   npx wrangler deploy
+   ```
 
 ### Optional: manual setup (if the script hits permission limits)
 
