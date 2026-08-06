@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Zero-config multi-domain disposable email on Cloudflare Workers",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "deploy": "wrangler deploy",
