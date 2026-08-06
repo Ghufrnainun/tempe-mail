@@ -44,13 +44,13 @@ export class RealtimeRoom extends DurableObject<Env> {
     }
 
     // SSE connection
-    return this.handleSse();
+    return this.handleSse(request.signal);
   }
 
   /**
    * Establish an SSE (Server-Sent Events) connection.
    */
-  private handleSse(): Response {
+  private handleSse(signal?: AbortSignal): Response {
     const clientId = crypto.randomUUID();
     const encoder = new TextEncoder();
 
@@ -67,11 +67,15 @@ export class RealtimeRoom extends DurableObject<Env> {
       )
     );
 
-    // Remove on abort/disconnect
+    // Remove on abort/disconnect — prevents memory leak in the DO
     const cleanup = () => {
       this.clients.delete(clientId);
       writer.close().catch(() => {});
     };
+
+    // Fire cleanup on client disconnect (abort). Without this, the writer
+    // stays in the Map forever and the DO instance leaks memory.
+    signal?.addEventListener('abort', cleanup, { once: true });
 
     return new Response(readable, {
       headers: {

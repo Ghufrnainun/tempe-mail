@@ -186,9 +186,9 @@ async function toolGetMessage(args: any): Promise<{ content: { type: string; tex
   const { address, messageId } = args || {};
   if (!address || !messageId) throw new Error('address and messageId are required');
 
-  const all: any[] = await api(`/inboxes/${encodeURIComponent(address)}/messages`);
-  const msg = all.find((m: any) => m.id === messageId);
-  if (!msg) throw new Error(`Message ${messageId} not found`);
+  // Fetch the single message directly — avoids pulling the whole inbox list.
+  const msg: any = await api(`/messages/${encodeURIComponent(messageId)}`);
+  if (!msg || msg.error) throw new Error(`Message ${messageId} not found`);
 
   const text = [
     `Subject: ${msg.subject}`,

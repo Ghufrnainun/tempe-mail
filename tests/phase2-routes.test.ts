@@ -319,4 +319,101 @@ describe('Phase 2 API endpoints', () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it('rejects webhook to private IP (SSRF guard)', async () => {
+    const { db, tables } = makeDb();
+    const app = new Hono<{ Bindings: Env }>();
+    app.route('/api', apiRoutes);
+
+    const sessRes = await app.request('/api/session', { method: 'POST' }, makeEnv(db));
+    const { sessionId } = await sessRes.json();
+    tables.sessions.push({ id: sessionId });
+    await app.request(
+      '/api/inboxes',
+      { method: 'POST', headers: { 'x-session-id': sessionId, 'Content-Type': 'application/json' }, body: '{"localPart":"ssrf"}' },
+      makeEnv(db)
+    );
+
+    // Cloud metadata IP — must be rejected
+    const res = await app.request(
+      '/api/inboxes/ssrf%40mail.example.com/webhooks',
+      { method: 'POST', headers: { 'x-session-id': sessionId, 'Content-Type': 'application/json' }, body: '{"url":"http://169.254.169.254/latest/meta-data/","secret":"supersecret1"}' },
+      makeEnv(db)
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects webhook to loopback (SSRF guard)', async () => {
+    const { db, tables } = makeDb();
+    const app = new Hono<{ Bindings: Env }>();
+    app.route('/api', apiRoutes);
+
+    const sessRes = await app.request('/api/session', { method: 'POST' }, makeEnv(db));
+    const { sessionId } = await sessRes.json();
+    tables.sessions.push({ id: sessionId });
+    await app.request(
+      '/api/inboxes',
+      { method: 'POST', headers: { 'x-session-id': sessionId, 'Content-Type': 'application/json' }, body: '{"localPart":"ssrf2"}' },
+      makeEnv(db)
+    );
+
+    const res = await app.request(
+      '/api/inboxes/ssrf2%40mail.example.com/webhooks',
+      { method: 'POST', headers: { 'x-session-id': sessionId, 'Content-Type': 'application/json' }, body: '{"url":"http://127.0.0.1:8080/hook","secret":"supersecret1"}' },
+      makeEnv(db)
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('allows public webhook URL', async () => {
+    const { db, tables } = makeDb();
+    const app = new Hono<{ Bindings: Env }>();
+    app.route('/api', apiRoutes);
+
+    const sessRes = await app.request('/api/session', { method: 'POST' }, makeEnv(db));
+    const { sessionId } = await sessRes.json();
+    tables.sessions.push({ id: sessionId });
+    await app.request(
+      '/api/inboxes',
+      { method: 'POST', headers: { 'x-session-id': sessionId, 'Content-Type': 'application/json' }, body: '{"localPart":"public"}' },
+      makeEnv(db)
+    );
+
+    const res = await app.request(
+      '/api/inboxes/public%40mail.example.com/webhooks',
+      { method: 'POST', headers: { 'x-session-id': sessionId, 'Content-Type': 'application/json' }, body: '{"url":"https://example.com/hook","secret":"supersecret1"}' },
+      makeEnv(db)
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it('SSE endpoint requires auth (401 without session)', async () => {
+    const { db } = makeDb();
+    const app = new Hono<{ Bindings: Env }>();
+    app.route('/api', apiRoutes);
+
+    const res = await app.request(
+      '/api/inboxes/anyone%40mail.example.com/events',
+      { method: 'GET' },
+      makeEnv(db)
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('single message endpoint returns 404 for unknown message', async () => {
+    const { db, tables } = makeDb();
+    const app = new Hono<{ Bindings: Env }>();
+    app.route('/api', apiRoutes);
+
+    const sessRes = await app.request('/api/session', { method: 'POST' }, makeEnv(db));
+    const { sessionId } = await sessRes.json();
+    tables.sessions.push({ id: sessionId });
+
+    const res = await app.request(
+      '/api/messages/does-not-exist',
+      { method: 'GET', headers: { 'x-session-id': sessionId } },
+      makeEnv(db)
+    );
+    expect(res.status).toBe(404);
+  });
 });

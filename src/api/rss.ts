@@ -13,6 +13,10 @@ rss.get('/:address/feed.xml', async (c) => {
   const address = c.req.param('address');
   const webHost = c.env.WEB_HOST || 'https://tempe-mail.pages.dev';
 
+  // RSS is public by default (address-as-secret, like other temp-mail
+  // services). Set RSS_PUBLIC=false in wrangler.toml to require a token.
+  const publicByDefault = (c.env as any).RSS_PUBLIC !== 'false';
+
   // Check the inbox actually exists
   const inbox = await db
     .prepare('SELECT address, created_at FROM inboxes WHERE address = ?')
@@ -21,6 +25,17 @@ rss.get('/:address/feed.xml', async (c) => {
 
   if (!inbox) {
     return c.text('Inbox not found', 404);
+  }
+
+  if (!publicByDefault) {
+    // Require ?token=sha1(address) — a capability token derived from the
+    // address. Without it, unauthenticated RSS reads are blocked.
+    const url = new URL(c.req.url);
+    const token = url.searchParams.get('token') || '';
+    const expected = await deriveToken(address);
+    if (token !== expected) {
+      return c.text('Forbidden — pass ?token=<rss_token>', 403);
+    }
   }
 
   const rows = await db
@@ -102,6 +117,16 @@ function escapeXml(s: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+}
+
+/**
+ * Derive an RSS capability token from the inbox address.
+ * Used when RSS_PUBLIC=false to gate unauthenticated RSS reads.
+ */
+async function deriveToken(address: string): Promise<string> {
+  const data = new TextEncoder().encode(address);
+  const digest = await crypto.subtle.digest('SHA-1', data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
 }
 
 export default rss;

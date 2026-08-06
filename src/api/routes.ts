@@ -22,10 +22,51 @@ const createInboxSchema = z.object({
 });
 
 const webhookSchema = z.object({
-  url: z.string().url('invalid webhook URL'),
+  url: z
+    .string()
+    .url('invalid webhook URL')
+    .refine(isPublicUrl, 'webhook URL must be a public HTTPS endpoint'),
   secret: z.string().min(8, 'secret must be at least 8 chars').max(256).optional().default(''),
   events: z.string().default('new_message'),
 });
+
+/**
+ * Block SSRF: webhook URLs must be public. Rejects loopback, private,
+ * link-local, and cloud metadata IPs (169.254.169.254 etc).
+ */
+function isPublicUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Allow localhost in dev? No — SSRF guard applies always.
+    if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false;
+
+    // Resolve the hostname to catch IP literals (127.0.0.1, 10.x, 192.168.x, 169.254.x)
+    // For hostnames, we can't resolve DNS here, but we block obvious internal names
+    // and IP-literal forms.
+    const blockedPatterns = [
+      /^127\./,
+      /^10\./,
+      /^192\.168\./,
+      /^172\.(1[6-9]|2\d|3[01])\./,
+      /^169\.254\./,
+      /^0\./,
+      /^100\.(6[4-9]|[7-9]\d|1\d\d)\./, // CGNAT
+      /^\[?::1\]?$/,
+      /^\[?fc/,
+      /^\[?fd/,
+      /^\[?fe8/,
+    ];
+    for (const p of blockedPatterns) {
+      if (p.test(hostname)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // NOTE: no `.api_key_inboxes`-based list — inboxes created by a key are linked.
 interface Principal {
@@ -415,6 +456,39 @@ api.delete('/inboxes/:address/webhooks/:id', async (c) => {
   return c.json({ deleted: true });
 });
 
+// ---- GET /api/messages/:id (single message, ownership-checked) ----
+api.get('/messages/:id', async (c) => {
+  const db = c.env.DB;
+  const id = c.req.param('id');
+  const principal = await getPrincipal(c);
+
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+
+  const row = await db
+    .prepare('SELECT * FROM messages WHERE id = ?')
+    .bind(id)
+    .first<Record<string, string>>();
+  if (!row) return c.json({ error: 'message not found' }, 404);
+
+  if (!(await ownsInbox(c, principal, row.inbox_address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
+
+  return c.json({
+    id: row.id,
+    inbox_address: row.inbox_address,
+    from_address: row.from_address,
+    from_name: row.from_name || '',
+    subject: row.subject,
+    body: row.body,
+    body_html: row.body_html || '',
+    spf: row.spf || 'unknown',
+    dkim: row.dkim || 'unknown',
+    dmarc: row.dmarc || 'unknown',
+    received_at: row.received_at,
+  });
+});
+
 // ---- GET /api/messages/:id/attachments/:filename (R2 download) ----
 api.get('/messages/:id/attachments/:filename', async (c) => {
   const db = c.env.DB;
@@ -444,10 +518,13 @@ api.get('/messages/:id/attachments/:filename', async (c) => {
   if (c.env.ATTACHMENTS && att.r2_key) {
     const obj = await c.env.ATTACHMENTS.get(att.r2_key);
     if (obj) {
+      // Strip CR/LF and quotes — prevents header/response splitting via
+      // a malicious attachment filename.
+      const safeFilename = att.filename.replace(/[\r\n"]/g, '');
       return new Response(obj.body, {
         headers: {
           'Content-Type': att.content_type || 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${att.filename.replace(/"/g, '')}"`,
+          'Content-Disposition': `attachment; filename="${safeFilename}"`,
           'Cache-Control': 'private, max-age=300',
         },
       });
@@ -460,6 +537,15 @@ api.get('/messages/:id/attachments/:filename', async (c) => {
 // ---- GET /api/inboxes/:address/events (SSE realtime) ----
 api.get('/inboxes/:address/events', async (c) => {
   const address = c.req.param('address');
+  const principal = await getPrincipal(c);
+
+  // Require ownership — otherwise anyone who knows an inbox address can
+  // listen to its realtime stream (privacy leak).
+  if (!principal) return c.json({ error: 'x-session-id or Bearer API key required' }, 401);
+  if (!(await ownsInbox(c, principal, address))) {
+    return c.json({ error: 'inbox not found' }, 404);
+  }
+
   return handleSse(c.env, address);
 });
 

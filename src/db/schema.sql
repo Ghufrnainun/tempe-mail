@@ -79,3 +79,4 @@ CREATE TABLE IF NOT EXISTS webhooks (
 CREATE INDEX IF NOT EXISTS idx_messages_inbox ON messages(inbox_address, received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
 CREATE INDEX IF NOT EXISTS idx_webhooks_inbox ON webhooks(inbox_address);
+CREATE INDEX IF NOT EXISTS idx_inboxes_expires ON inboxes(expires_at);
