@@ -11,6 +11,7 @@ window.__tempeI18nID = {
   ttlHours: "Masa Aktif",
   creating: "Membuat...",
   noInboxes: "Belum ada inbox — buat di atas.",
+  emptyTip: "Tips: kirim email ke alamat ini dari akun lain. Email masuknya otomatis di sini.",
   inboxes: "Inbox",
   messages: "Pesan",
   noMessages: "Belum ada pesan. Kirim email ke alamat ini.",

@@ -359,12 +359,26 @@
     root.innerHTML = "";
 
     if (state.activeMessage) {
-      root.appendChild(renderMessageDetail());
+      if (state.activeInbox) {
+        root.appendChild(renderSplitView());
+      } else {
+        root.appendChild(renderMessageDetail());
+      }
     } else if (state.activeInbox) {
       root.appendChild(renderInboxView());
     } else {
       root.appendChild(renderMainView());
     }
+  }
+
+  // =========================================================
+  // RENDER: Split View (desktop master-detail, list + detail)
+  // =========================================================
+  function renderSplitView() {
+    return el("div", { className: "tm-split" }, [
+      el("div", { className: "tm-split-left" }, [renderInboxView()]),
+      el("div", { className: "tm-split-right" }, [renderMessageDetail()]),
+    ]);
   }
 
   // =========================================================
@@ -502,9 +516,25 @@
 
   function renderInboxList() {
     if (!state.inboxes.length) {
+      const cta = el("button", {
+        className: "tm-btn tm-btn--primary",
+        onclick: () => {
+          const panel = $("#tm-create-panel");
+          if (panel) {
+            panel.scrollIntoView({ behavior: "smooth", block: "center" });
+            const input = $("#tm-custom-local");
+            if (input) input.focus();
+          }
+        },
+      }, t("createInbox"));
+
+      const tip = el("div", { className: "tm-empty-tip" }, t("emptyTip"));
+
       return el("div", { className: "tm-empty" }, [
         el("div", { className: "tm-empty-icon" }, "@"),
         el("div", { className: "tm-empty-text" }, t("noInboxes")),
+        el("div", { className: "tm-empty-cta" }, [cta]),
+        tip,
       ]);
     }
 

@@ -11,6 +11,7 @@ window.__tempeI18nEN = {
   ttlHours: "Lifetime",
   creating: "Creating...",
   noInboxes: "No inboxes yet — create one above.",
+  emptyTip: "Tip: kirim email ke alamat ini dari akun lain. Email masuk otomatis di sini, lho.",
   inboxes: "Inboxes",
   messages: "Messages",
   noMessages: "No messages yet. Send an email to this address.",
