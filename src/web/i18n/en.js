@@ -54,6 +54,7 @@ window.__tempeI18nEN = {
   error: "Something went wrong.",
   retry: "Retry",
   agoJust: "just now",
+  expiredNow: "expired",
   agoMin: "min ago",
   agoMins: "mins ago",
   agoHour: "hr ago",

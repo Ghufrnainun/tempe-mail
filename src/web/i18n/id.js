@@ -54,6 +54,7 @@ window.__tempeI18nID = {
   error: "Terjadi kesalahan.",
   retry: "Coba lagi",
   agoJust: "baru saja",
+  expiredNow: "kedaluwarsa",
   agoMin: "mnt lalu",
   agoMins: "mnt lalu",
   agoHour: "jam lalu",

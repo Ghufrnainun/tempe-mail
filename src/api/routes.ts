@@ -245,27 +245,10 @@ api.post('/inboxes', async (c) => {
   }
 
   const domains = getDomains(c.env);
-  const domain = body.domain || domains[0] || 'example.com';
+  const domain = body.domain || domains[Math.floor(Math.random() * domains.length)] || 'example.com';
 
-  // Optional per-principal inbox cap (simple abuse protection). Unset/unlimited by default.
-  const rawCap = (c.env as any).MAX_INBOXES_PER_SESSION || (c.env as any).MAX_INBOXES_PER_KEY;
-  const cap = rawCap ? parseInt(String(rawCap), 10) : NaN;
-  const isApiKey = principal.sessionId.startsWith('apikey:') && principal.sessionId.length > 8;
-  if (!Number.isNaN(cap) && cap > 0) {
-    const count = await db
-      .prepare(
-        isApiKey
-          ? 'SELECT COUNT(*) AS n FROM api_key_inboxes WHERE api_key_id = ?'
-          : 'SELECT COUNT(*) AS n FROM session_inboxes WHERE session_id = ?'
-      )
-      .bind(isApiKey ? parseInt(principal.sessionId.slice(7), 10) : principal.sessionId)
-      .first<{ n: number }>();
-    if ((count?.n || 0) >= cap) {
-      return c.json({ error: `inbox limit reached (${cap} max)` }, 429);
-    }
-  }
-
-  // Zod already validated localPart format; use it or generate random
+  // Validate + upsert inbox
+  let userId: string | null = null;
   let localPart: string;
   if (body.localPart) {
     localPart = body.localPart.toLowerCase();

@@ -272,6 +272,20 @@
     return `${days} ${days === 1 ? t("agoDay") : t("agoDays")}`;
   }
 
+  // Countdown for future timestamps (expires_at). Negative diff => time in future.
+  function timeUntil(iso) {
+    const diff = new Date(iso).getTime() - Date.now();
+    if (diff <= 0) return t("expiredNow");
+    const secs = Math.floor(diff / 1000);
+    const mins = Math.floor(secs / 60);
+    const hrs = Math.floor(mins / 60);
+    const days = Math.floor(hrs / 24);
+    if (days > 0) return `${days}d`;
+    if (hrs > 0) return `${hrs}h`;
+    if (mins > 0) return `${mins}m`;
+    return `${secs}s`;
+  }
+
   function formatSize(bytes) {
     if (!bytes) return "";
     if (bytes < 1024) return `${bytes} B`;
@@ -549,7 +563,7 @@
       item.appendChild(el("span", { className: "tm-inbox-address" }, inbox.address));
 
       if (inbox.expires_at) {
-        item.appendChild(el("span", { className: "tm-inbox-meta" }, `${t("expiresAt")} ${timeAgo(inbox.expires_at)}`));
+        item.appendChild(el("span", { className: "tm-inbox-meta" }, `${t("expiresAt")} ${timeUntil(inbox.expires_at)}`));
       }
 
       const actions = el("div", { className: "tm-inbox-actions" }, [
