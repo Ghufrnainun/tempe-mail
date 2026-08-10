@@ -418,6 +418,7 @@
         el("span", { className: "tm-brand-tagline" }, t("tagline")),
       ]),
       el("div", { className: "tm-header-actions" }, [
+        el("a", { className: "tm-btn tm-btn--ghost tm-btn--small", href: "/docs" }, "Docs"),
         el("button", { className: "tm-btn tm-btn--ghost tm-btn--small", onclick: toggleLanguage }, langLabel),
         el("button", {
           className: "tm-btn tm-btn--ghost tm-btn--icon",

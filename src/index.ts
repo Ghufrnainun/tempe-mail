@@ -24,8 +24,9 @@ app.get('/*', async (c) => {
   const url = new URL(c.req.url);
   let pathname = url.pathname;
 
-  // Serve / as index.html
+  // Serve / as index.html, /docs as docs.html
   if (pathname === '/' || pathname === '') pathname = '/index.html';
+  if (pathname === '/docs') pathname = '/docs.html';
 
   try {
     const asset = await ASSETS.fetch(new Request(`https://asset${pathname}`));

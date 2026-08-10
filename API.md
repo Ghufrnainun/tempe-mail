@@ -231,10 +231,10 @@ If the attachment body was not stored (no R2 binding), returns `410` with size m
 ## RSS Feed
 
 ```http
-GET /api/inboxes/:address/feed.xml
+GET /:address/feed.xml
 ```
 
-Public — no authentication required. The address acts as the secret.
+Public — no authentication required. The address acts as the secret. Mounted at root (not under `/api`).
 
 Returns RSS 2.0 XML with message items.
 
@@ -246,7 +246,7 @@ Returns RSS 2.0 XML with message items.
 GET /api/inboxes/:address/events
 ```
 
-Server-Sent Events stream. Public — connects to a Durable Object room per inbox.
+Server-Sent Events stream. Requires authentication (session or API key) and inbox ownership. Connects to a Durable Object room per inbox.
 
 Event: `new-message`
 Data: message JSON object.

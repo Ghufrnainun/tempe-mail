@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="tempe-mail — API documentation">
+  <meta name="color-scheme" content="dark light">
+  <title>tempe-mail · Docs</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Inter+Tight:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    :root { --radius: 10px; }
+    .docs-app { max-width: 860px; margin: 0 auto; padding: 48px 24px 96px; }
+    .docs-nav { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+    .docs-nav .brand { font-weight: 700; font-size: 1.05rem; }
+    .docs-nav a { color: var(--text-2); font-size: 0.85rem; }
+    .docs-nav a:hover { color: var(--accent); }
+    .docs-hero h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin: 0 0 8px; }
+    .docs-hero p { color: var(--text-2); font-size: 1rem; line-height: 1.6; margin: 0 0 32px; max-width: 640px; }
+    .docs-section { margin: 40px 0; }
+    .docs-section h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 16px; }
+    .docs-section h3 { font-size: 1rem; font-weight: 600; margin: 28px 0 10px; }
+    .docs-section p, .docs-section li { color: var(--text-2); font-size: 0.9rem; line-height: 1.65; }
+    .docs-section ul { padding-left: 20px; margin: 8px 0; }
+    .docs-section li { margin: 4px 0; }
+    .docs-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 20px 22px; margin: 14px 0; }
+    .endpoint { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+    .method { font-family: var(--mono-font); font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 5px; letter-spacing: 0.04em; }
+    .method.get { background: rgba(16,185,129,0.12); color: #34d399; }
+    .method.post { background: rgba(59,130,246,0.12); color: #60a5fa; }
+    .method.delete { background: rgba(239,68,68,0.12); color: #f87171; }
+    .endpoint code.end { font-family: var(--mono-font); font-size: 0.82rem; color: var(--text-1); }
+    .ep-desc { font-size: 0.82rem; color: var(--text-2); margin: 0 0 12px; }
+    .auth { display: inline-block; font-family: var(--mono-font); font-size: 0.66rem; color: var(--text-3); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; margin-bottom: 8px; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; overflow-x: auto; font-family: var(--mono-font); font-size: 0.78rem; line-height: 1.6; margin: 8px 0; color: var(--text-1); }
+    pre code { font-family: inherit; }
+    .note { border-left: 3px solid var(--accent); background: var(--surface); padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; font-size: 0.82rem; color: var(--text-2); margin: 14px 0; line-height: 1.6; }
+    .note strong { color: var(--text-1); }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.82rem; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-3); font-family: var(--mono-font); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { color: var(--text-2); }
+    td code, th code { background: var(--surface); padding: 1px 5px; border-radius: 4px; font-size: 0.78em; }
+    .badge { display: inline-block; font-family: var(--mono-font); font-size: 0.66rem; padding: 2px 8px; border-radius: 99px; margin-right: 6px; }
+    .badge.blue { background: rgba(59,130,246,0.12); color: #60a5fa; }
+    .badge.green { background: rgba(16,185,129,0.12); color: #34d399; }
+    .badge.amber { background: rgba(245,158,11,0.12); color: #fbbf24; }
+    .badge.red { background: rgba(239,68,68,0.12); color: #f87171; }
+    .toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 16px 0 8px; }
+    .toc a { font-size: 0.85rem; color: var(--text-2); padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+    .toc a:hover { border-color: var(--accent); color: var(--text-1); }
+    .footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 0.75rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    @media (max-width: 640px) { .docs-app { padding: 28px 16px 64px; } .docs-hero h1 { font-size: 1.6rem; } }
+  </style>
+</head>
+<body>
+  <div class="docs-app">
+    <nav class="docs-nav">
+      <span class="brand">tempe-mail</span>
+      <a href="/">← Back to app</a>
+      <a href="/docs.html" aria-current="page">Docs</a>
+    </nav>
+
+    <header class="docs-hero">
+      <h1>Documentation</h1>
+      <p>Self-hosted disposable email on Cloudflare Workers. Create inboxes, receive mail, read messages, subscribe to webhooks, and integrate agents via API keys or MCP.</p>
+      <div>
+        <span class="badge blue">REST API</span>
+        <span class="badge green">Webhooks</span>
+        <span class="badge amber">MCP</span>
+        <span class="badge green">SSE Realtime</span>
+      </div>
+    </header>
+
+    <div class="toc">
+      <a href="#auth">Authentication</a>
+      <a href="#inboxes">Inboxes</a>
+      <a href="#messages">Messages</a>
+      <a href="#search">Search</a>
+      <a href="#webhooks">Webhooks</a>
+      <a href="#realtime">Realtime (SSE)</a>
+      <a href="#attachments">Attachments</a>
+      <a href="#keys">API Keys</a>
+      <a href="#rss">RSS</a>
+      <a href="#mcp">MCP</a>
+    </div>
+
+    <section class="docs-section" id="auth">
+      <h2>Authentication</h2>
+      <p>Two ways to authenticate. Most browser flows use a session; programmatic use uses an API key.</p>
+      <div class="docs-card">
+        <h3>Browser session</h3>
+        <p>Create a session, then send it as <code>x-session-id</code> on subsequent requests.</p>
+        <pre><code># Create session
+curl -X POST https://YOUR_HOST/api/session
+# → { "sessionId": "550e8400-e29b-41d4-a716-446655440000" }
+
+# Use it
+curl -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000" \
+  https://YOUR_HOST/api/inboxes</code></pre>
+      </div>
+      <div class="docs-card">
+        <h3>API key (Bearer)</h3>
+        <p>Create a key from a browser session, then authenticate with <code>Authorization: Bearer tmk_...</code>. Keys are stored SHA-256 hashed and can be revoked.</p>
+        <pre><code># Create a key (needs a browser session)
+curl -X POST -H "x-session-id: &lt;sessionId&gt;" \
+  -H "x-key-name: ci-bot" \
+  https://YOUR_HOST/api/keys
+# → { "id": 1, "key": "tmk_2f3a...", "name": "ci-bot" }
+
+# Use it
+curl -H "Authorization: Bearer tmk_2f3a..." \
+  https://YOUR_HOST/api/inboxes</code></pre>
+      </div>
+    </section>
+
+    <section class="docs-section" id="inboxes">
+      <h2>Inboxes</h2>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method post">POST</span><code class="end">/api/inboxes</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Create a new inbox. Random address by default, or specify your own.</p>
+        <pre><code>curl -X POST -H "x-session-id: &lt;sessionId&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"localPart":"myalias","ttlHours":48}' \
+  https://YOUR_HOST/api/inboxes
+# → { "address": "myalias@domain.com", "domain": "domain.com", "ttlHours": 48 }</code></pre>
+        <table>
+          <tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          <tr><td><code>localPart</code></td><td>string</td><td>random</td><td>Address prefix before @. Lowercased.</td></tr>
+          <tr><td><code>domain</code></td><td>string</td><td>random</td><td>One of the configured mail domains.</td></tr>
+          <tr><td><code>ttlHours</code></td><td>int</td><td>24</td><td>Expiry, clamped to 1–168 (7 days).</td></tr>
+        </table>
+      </div>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/inboxes</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">List inboxes owned by the principal (non-expired).</p>
+        <pre><code>→ [ { "address": "myalias@domain.com", "created_at": "...", "expires_at": "..." } ]</code></pre>
+      </div>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method delete">DELETE</span><code class="end">/api/inboxes/:address</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Unlink an inbox from the principal. Returns <code>{ "deleted": true }</code>.</p>
+      </div>
+    </section>
+
+    <section class="docs-section" id="messages">
+      <h2>Messages</h2>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/inboxes/:address/messages</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">List messages in an inbox. Each includes deliverability (SPF/DKIM/DMARC), a semantic tag, and attachments.</p>
+        <pre><code>→ [{
+  "id": "msg_...",
+  "from_address": "noreply@github.com",
+  "from_name": "GitHub",
+  "subject": "[GitHub] Verify your email",
+  "body": "Plain text...",
+  "body_html": "&lt;html&gt;...",
+  "spf": "pass", "dkim": "pass", "dmarc": "pass",
+  "tag": "verification", "tag_label": "Verification",
+  "attachments": [ { "filename":"file.pdf", "content_type":"application/pdf", "size":1234 } ],
+  "received_at": "..."
+}]</code></pre>
+      </div>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/messages/:id</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Fetch a single message by id (ownership-checked).</p>
+      </div>
+    </section>
+
+    <section class="docs-section" id="search">
+      <h2>Search</h2>
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/inboxes/:address/search?q=...</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Search messages by subject, body, or sender. Query must be at least 2 characters. Returns up to 50 results.</p>
+        <pre><code>curl -H "x-session-id: &lt;sessionId&gt;" \
+  "https://YOUR_HOST/api/inboxes/myalias@domain.com/search?q=verify"
+# → [ { "id":"...", "subject":"...", "from_address":"...", "received_at":"..." } ]</code></pre>
+      </div>
+    </section>
+
+    <section class="docs-section" id="webhooks">
+      <h2>Webhooks</h2>
+      <p>Subscribe an inbox to receive <code>new_message</code> events. Deliveries are HMAC-SHA256 signed with your secret.</p>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method post">POST</span><code class="end">/api/inboxes/:address/webhooks</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Create a webhook subscription.</p>
+        <pre><code>curl -X POST -H "x-session-id: &lt;sessionId&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://myapp.com/hook","secret":"s3cret"}' \
+  https://YOUR_HOST/api/inboxes/myalias@domain.com/webhooks
+# → { "id": 1, "inbox_address":"...", "url":"...", "events":"new_message" }</code></pre>
+      </div>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/inboxes/:address/webhooks</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">List webhook subscriptions for an inbox.</p>
+      </div>
+
+      <div class="docs-card">
+        <div class="endpoint"><span class="method delete">DELETE</span><code class="end">/api/inboxes/:address/webhooks/:id</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Remove a webhook subscription.</p>
+      </div>
+
+      <div class="docs-card">
+        <h3>Webhook payload</h3>
+        <pre><code>POST {your_url}
+X-TempeMail-Signature: v1=&lt;hmac-sha256-hex&gt;
+
+{
+  "event": "new_message",
+  "inbox_address": "myalias@domain.com",
+  "message": {
+    "id": "msg_...",
+    "from_address": "...",
+    "from_name": "...",
+    "subject": "...",
+    "body_preview": "First 200 chars (OTP codes redacted)",
+    "received_at": "..."
+  }
+}</code></pre>
+        <div class="note"><strong>Verify signature:</strong> HMAC-SHA256 of the raw request body using your webhook <code>secret</code>, compare to <code>v1=&lt;hex&gt;</code>. OTP-looking codes are redacted from <code>body_preview</code> before external delivery.</div>
+      </div>
+    </section>
+
+    <section class="docs-section" id="realtime">
+      <h2>Realtime (SSE)</h2>
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/inboxes/:address/events</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Server-Sent Events stream. A <code>new_message</code> event fires when mail arrives. Ownership required.</p>
+        <pre><code>curl -N -H "x-session-id: &lt;sessionId&gt;" \
+  https://YOUR_HOST/api/inboxes/myalias@domain.com/events
+
+data: {"type":"connected"}
+data: {"type":"new_message","message":{"id":"...","subject":"..."}}</code></pre>
+      </div>
+    </section>
+
+    <section class="docs-section" id="attachments">
+      <h2>Attachments</h2>
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/messages/:id/attachments/:filename</code><span class="auth">session or Bearer</span></div>
+        <p class="ep-desc">Download an attachment. Returns the file if stored in R2; <code>410</code> with metadata if R2 is not configured (metadata-only).</p>
+      </div>
+    </section>
+
+    <section class="docs-section" id="keys">
+      <h2>API Keys</h2>
+      <div class="docs-card">
+        <div class="endpoint"><span class="method post">POST</span><code class="end">/api/keys</code><span class="auth">browser session only</span></div>
+        <p class="ep-desc">Create an API key. Prefix <code>tmk_</code>, shown once, stored hashed.</p>
+      </div>
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/api/keys</code><span class="auth">browser session only</span></div>
+        <p class="ep-desc">List API keys (name, created, last used, revoked).</p>
+      </div>
+      <div class="docs-card">
+        <div class="endpoint"><span class="method delete">DELETE</span><code class="end">/api/keys/:id</code><span class="auth">browser session only</span></div>
+        <p class="ep-desc">Revoke an API key.</p>
+      </div>
+    </section>
+
+    <section class="docs-section" id="rss">
+      <h2>RSS</h2>
+      <div class="docs-card">
+        <div class="endpoint"><span class="method get">GET</span><code class="end">/:address/feed.xml</code><span class="auth">public</span></div>
+        <p class="ep-desc">Public RSS 2.0 feed for an address. Mounted at root (not under /api).</p>
+      </div>
+    </section>
+
+    <section class="docs-section" id="mcp">
+      <h2>MCP Server</h2>
+      <p>Run a local MCP server that talks to the REST API with a Bearer key. Tools: <code>list_inboxes</code>, <code>list_messages</code>, <code>get_message</code>.</p>
+      <pre><code># Register with Claude Code
+claude mcp add tempe-mail -- node src/api/mcp.ts
+
+# Environment
+TEMPEMAIL_BASE_URL=https://YOUR_HOST
+TEMPEMAIL_API_KEY=tmk_...</code></pre>
+    </section>
+
+    <footer class="footer">
+      <span>tempe-mail · MIT License</span>
+      <span>Self-hosted · Cloudflare Workers</span>
+    </footer>
+  </div>
+</body>
+</html>

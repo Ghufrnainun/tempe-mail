@@ -390,7 +390,7 @@ curl -X POST https://temp.example.com/api/inboxes \
 }
 ```
 
-Full reference: [API.md](./API.md)
+Full reference: [API.md](./API.md) · Live docs: [`/docs`](https://temp.atminku.my.id/docs)
 
 ---
 
