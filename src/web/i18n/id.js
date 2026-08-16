@@ -19,6 +19,7 @@ window.__tempeI18nID = {
   subject: "Subjek",
   body: "Isi",
   htmlRendered: "HTML ditampilkan di bawah",
+  htmlContent: "Konten email HTML",
   attachments: "Lampiran",
   noAttachments: "Tidak ada lampiran",
   delete: "Hapus",

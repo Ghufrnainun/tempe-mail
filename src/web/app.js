@@ -300,7 +300,11 @@
     const existing = $(".tm-toast");
     if (existing) existing.remove();
 
-    const tEl = el("div", { className: "tm-toast tm-toast--visible" }, text);
+    const tEl = el("div", {
+      className: "tm-toast tm-toast--visible",
+      role: "status",
+      "aria-live": "polite",
+    }, text);
     document.body.appendChild(tEl);
     setTimeout(() => {
       tEl.classList.remove("tm-toast--visible");
@@ -342,25 +346,56 @@
   }
 
   // =========================================================
-  // Confirm Dialog
+  // Confirm Dialog — accessible modal with focus trap
   // =========================================================
   function showConfirm(title, text, onConfirm) {
-    const overlay = el("div", { className: "tm-overlay" }, [
-      el("div", { className: "tm-modal" }, [
-        el("div", { className: "tm-modal-title" }, title),
-        el("div", { className: "tm-modal-text" }, text),
-        el("div", { className: "tm-modal-actions" }, [
-          el("button", { className: "tm-btn tm-btn--ghost", onclick: () => overlay.remove() }, t("cancel")),
-          el("button", { className: "tm-btn tm-btn--primary", onclick: async () => { overlay.remove(); await onConfirm(); } }, t("delete")),
-        ]),
-      ]),
+    const previouslyFocused = document.activeElement;
+
+    const titleEl = el("div", { className: "tm-modal-title", id: "tm-modal-title" }, title);
+    const cancelBtn = el("button", { className: "tm-btn tm-btn--ghost" }, t("cancel"));
+    const confirmBtn = el("button", { className: "tm-btn tm-btn--primary" }, t("delete"));
+
+    const modal = el("div", {
+      className: "tm-modal",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-labelledby": "tm-modal-title",
+    }, [
+      titleEl,
+      el("div", { className: "tm-modal-text" }, text),
+      el("div", { className: "tm-modal-actions" }, [cancelBtn, confirmBtn]),
     ]);
 
+    const overlay = el("div", { className: "tm-overlay" }, [modal]);
+
+    const close = () => {
+      document.removeEventListener("keydown", onKeydown, true);
+      overlay.remove();
+      if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+    };
+
+    cancelBtn.addEventListener("click", close);
+    confirmBtn.addEventListener("click", async () => { close(); await onConfirm(); });
+
     overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.remove();
+      if (e.target === overlay) close();
     });
 
+    const onKeydown = (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); close(); return; }
+      if (e.key !== "Tab") return;
+      // Focus trap
+      const focusables = $$("button, [href], input, select, [tabindex]:not([tabindex='-1'])", modal);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeydown, true);
+
     document.body.appendChild(overlay);
+    cancelBtn.focus();
   }
 
   // =========================================================
@@ -401,8 +436,10 @@
   function renderMainView() {
     const container = el("div", { className: "tm-app" }, [
       renderHeader(),
-      renderCreatePanel(),
-      renderInboxList(),
+      el("main", { className: "tm-main" }, [
+        renderCreatePanel(),
+        renderInboxList(),
+      ]),
     ]);
 
     setTimeout(() => bindCreatePanel(container), 0);
@@ -414,7 +451,7 @@
     const langLabel = t("language");
     return el("header", { className: "tm-header" }, [
       el("div", { className: "tm-brand" }, [
-        el("span", { className: "tm-brand-name" }, t("appName")),
+        el("a", { className: "tm-brand-name", href: "/", "aria-label": t("appName") }, t("appName")),
         el("span", { className: "tm-brand-tagline" }, t("tagline")),
       ]),
       el("div", { className: "tm-header-actions" }, [
@@ -423,6 +460,8 @@
         el("button", {
           className: "tm-btn tm-btn--ghost tm-btn--icon",
           onclick: toggleDarkMode,
+          "aria-label": state.isDark ? t("lightMode") : t("darkMode"),
+          "aria-pressed": String(state.isDark),
           title: state.isDark ? t("lightMode") : t("darkMode"),
         }, state.isDark ? "\u2600" : "\u263E"),
       ]),
@@ -443,7 +482,12 @@
       dataset: { tab: "custom" },
     }, "\u270E " + t("customAddress"));
 
-    const tabs = el("div", { className: "tm-create-tabs" }, [randomTab, customTab]);
+    const tabs = el("div", { className: "tm-create-tabs", role: "tablist", "aria-label": t("createInbox") }, [randomTab, customTab]);
+
+    randomTab.setAttribute("role", "tab");
+    randomTab.setAttribute("aria-selected", String(tab === "random"));
+    customTab.setAttribute("role", "tab");
+    customTab.setAttribute("aria-selected", String(tab === "custom"));
 
     const form = el("div", { className: "tm-create-form" });
 
@@ -553,12 +597,14 @@
       ]);
     }
 
-    const list = el("div", { className: "tm-inbox-list", id: "tm-inbox-list" });
+    const list = el("div", { className: "tm-inbox-list", id: "tm-inbox-list", role: "list" });
 
     state.inboxes.forEach((inbox) => {
-      const item = el("div", {
+      const item = el("button", {
         className: "tm-inbox-item",
+        type: "button",
         dataset: { address: inbox.address },
+        "aria-label": `${t("inboxes")}: ${inbox.address}${inbox.expires_at ? `, ${t("expiresAt")} ${timeUntil(inbox.expires_at)}` : ""}`,
       });
 
       item.appendChild(el("span", { className: "tm-inbox-address" }, inbox.address));
@@ -699,7 +745,7 @@
         el("div", { className: "tm-empty-text" }, t("noMessages")),
       ]));
     } else {
-      const msgList = el("div", { className: "tm-msg-list" });
+      const msgList = el("div", { className: "tm-msg-list", role: "list" });
 
       filtered.forEach((msg) => {
         const starred = isStarred(msg.id);
@@ -707,15 +753,19 @@
         const otp = detectOTP(msg.body);
         const previewText = otp ? `OTP: ${otp}` : (msg.body || "").replace(/\s+/g, " ").trim().slice(0, 100);
 
-        const item = el("div", {
+        const item = el("button", {
           className: `tm-msg-item ${state.activeMessage && state.activeMessage.id === msg.id ? "tm-msg-item--selected" : ""}`,
+          type: "button",
           dataset: { msgId: msg.id },
+          "aria-label": `${msg.from_name || msg.from_address}: ${msg.subject}`,
         });
 
         // Star toggle
         item.appendChild(el("button", {
           className: `tm-msg-star ${starred ? "tm-msg-star--active" : ""}`,
           dataset: { action: "star", msgId: msg.id },
+          "aria-label": starred ? t("unstar") : t("star"),
+          "aria-pressed": String(starred),
           title: starred ? t("unstar") : t("star"),
         }, starred ? "\u2605" : "\u2606"));
 
@@ -819,6 +869,8 @@
     tagRow.appendChild(el("button", {
       className: `tm-msg-star ${starred ? "tm-msg-star--active" : ""}`,
       dataset: { action: "star", msgId: msg.id },
+      "aria-label": starred ? t("unstar") : t("star"),
+      "aria-pressed": String(starred),
       title: starred ? t("unstar") : t("star"),
     }, starred ? "\u2605" : "\u2606"));
     header.appendChild(tagRow);
@@ -866,19 +918,14 @@
 
       const iframe = el("iframe", {
         className: "tm-msg-body-html",
-        sandbox: "allow-same-origin",
+        sandbox: "",
         srcdoc: msg.body_html,
-        title: "HTML email content",
+        title: t("htmlContent"),
       });
       bodySection.appendChild(iframe);
-
-      iframe.addEventListener("load", () => {
-        try {
-          const h = iframe.contentDocument?.body?.scrollHeight
-            || iframe.contentDocument?.documentElement?.scrollHeight;
-          if (h) iframe.style.height = `${Math.min(h + 20, 1200)}px`;
-        } catch { /* cross-origin — ignore */ }
-      });
+      // Note: sandbox="" fully isolates the doc — scripts disabled, no storage
+      // access. Auto-height via contentDocument is impossible by design, so the
+      // frame keeps its CSS min-height and stays user-resizable.
     }
 
     // Attachments
