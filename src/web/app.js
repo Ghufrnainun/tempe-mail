@@ -32,6 +32,9 @@
     isDark: true,
     lang: "en",
     pollingTimer: null,
+    apiKeys: [],
+    webhooks: [],
+    searchQuery: "",
   };
 
   // =========================================================
@@ -93,6 +96,60 @@
     }
 
     return res.json();
+  }
+
+  // =========================================================
+  // API Keys (browser session required)
+  // =========================================================
+  async function loadApiKeys() {
+    state.apiKeys = await api("/keys");
+  }
+
+  async function createApiKey(name) {
+    const res = await fetch(`${API_BASE}/keys`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-key-name": name, "x-session-id": state.sessionId },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json(); // { id, key, name }
+  }
+
+  async function revokeApiKey(id) {
+    await api(`/keys/${id}`, { method: "DELETE" });
+  }
+
+  // =========================================================
+  // Webhooks (per inbox)
+  // =========================================================
+  async function loadWebhooks(address) {
+    state.webhooks = await api(`/inboxes/${encodeURIComponent(address)}/webhooks`);
+  }
+
+  async function addWebhook(address, url, secret, events) {
+    const res = await fetch(`${API_BASE}/inboxes/${encodeURIComponent(address)}/webhooks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-session-id": state.sessionId },
+      body: JSON.stringify({ url, secret, events }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async function deleteWebhook(address, id) {
+    await api(`/inboxes/${encodeURIComponent(address)}/webhooks/${id}`, { method: "DELETE" });
+  }
+
+  // =========================================================
+  // Search
+  // =========================================================
+  async function searchMessages(address, q) {
+    return api(`/inboxes/${encodeURIComponent(address)}/search?q=${encodeURIComponent(q)}`);
   }
 
   // =========================================================
@@ -403,9 +460,13 @@
       renderHeader(),
       renderCreatePanel(),
       renderInboxList(),
+      renderApiKeysPanel(),
     ]);
 
-    setTimeout(() => bindCreatePanel(container), 0);
+    setTimeout(() => {
+      bindCreatePanel(container);
+      loadApiKeys().catch(() => {});
+    }, 0);
 
     return container;
   }
@@ -616,6 +677,204 @@
   }
 
   // =========================================================
+  // RENDER: API Keys panel (main view)
+  // =========================================================
+  function renderApiKeysPanel() {
+    const panel = el("div", { className: "tm-section", id: "tm-keys-panel" });
+
+    const header = el("div", { className: "tm-section-header" }, [
+      el("div", { className: "tm-section-title" }, t("apiKeys")),
+      el("button", {
+        className: "tm-btn tm-btn--ghost tm-btn--small",
+        onclick: async () => {
+          const btn = event.target;
+          btn.disabled = true;
+          try {
+            await loadApiKeys();
+            render();
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            btn.disabled = false;
+          }
+        },
+      }, "\u21BB " + t("refresh")),
+    ]);
+
+    const createRow = el("div", { className: "tm-keys-create" }, [
+      el("input", {
+        className: "tm-field-input",
+        id: "tm-key-name",
+        type: "text",
+        placeholder: t("keyNamePlaceholder"),
+        maxLength: 64,
+        style: { flex: 1 },
+      }),
+      el("button", {
+        className: "tm-btn tm-btn--primary",
+        onclick: async () => {
+          const input = $("#tm-key-name");
+          const name = (input?.value || "").trim();
+          const btn = event.target;
+          btn.disabled = true;
+          try {
+            const created = await createApiKey(name);
+            if (input) input.value = "";
+            state._lastKey = created.key;
+            await loadApiKeys();
+            render();
+            // Show the raw key once (copyable) in a highlighted strip
+            setTimeout(() => {
+              const raw = $("#tm-raw-key");
+              if (raw && created.key) {
+                raw.textContent = created.key;
+                raw.style.display = "inline-block";
+              }
+            }, 0);
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            btn.disabled = false;
+          }
+        },
+      }, t("createKey")),
+    ]);
+
+    const listWrap = el("div", { className: "tm-keys-list" });
+
+    // One-time raw key display (after create)
+    if (state._lastKey) {
+      listWrap.appendChild(el("div", { className: "tm-raw-key-strip" }, [
+        el("span", { className: "tm-raw-key", id: "tm-raw-key" }, state._lastKey),
+        el("button", {
+          className: "tm-btn tm-btn--ghost tm-btn--small",
+          onclick: () => { copyText(state._lastKey); },
+        }, "\u2398 " + t("copyKey")),
+      ]));
+    }
+
+    if (!state.apiKeys.length) {
+      listWrap.appendChild(el("div", { className: "tm-empty-text", style: { padding: "12px 0" } }, t("noKeys")));
+    } else {
+      state.apiKeys.forEach((k) => {
+        const row = el("div", { className: "tm-key-row" }, [
+          el("span", { className: "tm-key-name" }, k.name || "—"),
+          el("span", { className: "tm-key-meta" }, `${t("created")} ${timeAgo(k.created_at)}`),
+          el("span", {
+            className: `tm-key-status ${k.revoked ? "tm-key-status--revoked" : ""}`,
+          }, k.revoked ? t("revoked") : t("active")),
+          k.revoked ? null : el("button", {
+            className: "tm-btn tm-btn--ghost tm-btn--small tm-btn--danger",
+            title: t("revokeKey"),
+            onclick: async () => {
+              await revokeApiKey(k.id);
+              await loadApiKeys();
+              render();
+            },
+          }, t("revoke")),
+        ]);
+        listWrap.appendChild(row);
+      });
+    }
+
+    panel.appendChild(header);
+    panel.appendChild(createRow);
+    panel.appendChild(listWrap);
+    return panel;
+  }
+
+  // =========================================================
+  // RENDER: Webhooks panel (inbox view)
+  // =========================================================
+  function renderWebhooksPanel() {
+    const panel = el("div", { className: "tm-section", id: "tm-webhooks-panel" });
+    const address = state.activeInbox;
+
+    const header = el("div", { className: "tm-section-header" }, [
+      el("div", { className: "tm-section-title" }, t("webhooks")),
+      el("button", {
+        className: "tm-btn tm-btn--ghost tm-btn--small",
+        onclick: async () => {
+          try {
+            await loadWebhooks(address);
+            render();
+          } catch (err) {
+            toast(err.message);
+          }
+        },
+      }, "\u21BB " + t("refresh")),
+    ]);
+
+    const addRow = el("div", { className: "tm-wh-create" }, [
+      el("input", {
+        className: "tm-field-input",
+        id: "tm-wh-url",
+        type: "url",
+        placeholder: "https://example.com/hook",
+        style: { flex: 2 },
+      }),
+      el("input", {
+        className: "tm-field-input",
+        id: "tm-wh-secret",
+        type: "text",
+        placeholder: t("whSecretPlaceholder"),
+        style: { flex: 1 },
+      }),
+      el("button", {
+        className: "tm-btn tm-btn--primary",
+        onclick: async () => {
+          const url = $("#tm-wh-url")?.value.trim();
+          const secret = $("#tm-wh-secret")?.value.trim() || "";
+          if (!url) {
+            toast(t("whUrlRequired"));
+            return;
+          }
+          const btn = event.target;
+          btn.disabled = true;
+          try {
+            await addWebhook(address, url, secret, "new_message");
+            toast(t("whCreated"));
+            $("#tm-wh-url").value = "";
+            $("#tm-wh-secret").value = "";
+            await loadWebhooks(address);
+            render();
+          } catch (err) {
+            toast(err.message);
+          } finally {
+            btn.disabled = false;
+          }
+        },
+      }, t("addWebhook")),
+    ]);
+
+    const listWrap = el("div", { className: "tm-wh-list" });
+    if (!state.webhooks.length) {
+      listWrap.appendChild(el("div", { className: "tm-empty-text", style: { padding: "12px 0" } }, t("noWebhooks")));
+    } else {
+      state.webhooks.forEach((h) => {
+        listWrap.appendChild(el("div", { className: "tm-wh-row" }, [
+          el("span", { className: "tm-wh-url" }, h.url),
+          el("span", { className: "tm-wh-events" }, h.events || "new_message"),
+          el("button", {
+            className: "tm-btn tm-btn--ghost tm-btn--small tm-btn--danger",
+            title: t("delete"),
+            onclick: async () => {
+              await deleteWebhook(address, h.id);
+              await loadWebhooks(address);
+              render();
+            },
+          }, "\u2715"),
+        ]));
+      });
+    }
+
+    panel.appendChild(header);
+    panel.appendChild(addRow);
+    panel.appendChild(listWrap);
+    return panel;
+  }
+
+  // =========================================================
   // RENDER: Inbox View (message list)
   // =========================================================
   function renderInboxView() {
@@ -679,6 +938,53 @@
     });
 
     container.appendChild(filterRow);
+
+    // Search bar
+    const searchBar = el("div", { className: "tm-search" }, [
+      el("input", {
+        className: "tm-field-input",
+        id: "tm-search-input",
+        type: "search",
+        placeholder: t("searchPlaceholder"),
+        value: state.searchQuery || "",
+      }),
+      el("button", {
+        className: "tm-btn tm-btn--ghost tm-btn--small",
+        id: "tm-search-clear",
+        title: t("clearSearch"),
+        style: { display: state.searchQuery ? "inline-flex" : "none" },
+      }, "\u2715"),
+    ]);
+    container.appendChild(searchBar);
+
+    searchBar.addEventListener("input", (e) => {
+      state.searchQuery = e.target.value.trim();
+      const clearBtn = $("#tm-search-clear");
+      if (clearBtn) clearBtn.style.display = state.searchQuery ? "inline-flex" : "none";
+    });
+    searchBar.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter" && state.searchQuery) {
+        e.preventDefault();
+        const q = state.searchQuery;
+        try {
+          const results = await searchMessages(address, q);
+          state.messages = results;
+          state.activeFilter = "all";
+          render();
+        } catch (err) {
+          toast(err.message);
+        }
+      }
+    });
+
+    const clearBtn = $("#tm-search-clear");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        state.searchQuery = "";
+        state.activeFilter = "all";
+        loadMessages(address).then(() => render()).catch(() => render());
+      });
+    }
 
     // Filter messages
     let filtered = state.messages;
@@ -768,6 +1074,19 @@
 
       container.appendChild(msgList);
     }
+
+    // Webhooks panel
+    container.appendChild(renderWebhooksPanel());
+
+    // Load webhooks in background (non-blocking render)
+    setTimeout(() => {
+      loadWebhooks(address).then(() => {
+        // Only re-render if still on this inbox and no message detail open
+        if (state.activeInbox === address && !state.activeMessage) {
+          render();
+        }
+      }).catch(() => {});
+    }, 0);
 
     return container;
   }

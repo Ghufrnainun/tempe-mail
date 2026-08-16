@@ -438,7 +438,6 @@ See [AGENTS.md](./AGENTS.md) and the plan document for details.
 
 ### 🔜 Planned
 - [ ] Frontend UI for API keys, webhooks, and search (backends are API-ready)
-- [ ] Rate limiting per key
 - [ ] Multiple webhook events (message deleted, inbox expired)
 
 ---

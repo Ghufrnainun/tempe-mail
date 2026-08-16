@@ -9,51 +9,51 @@
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Inter+Tight:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <style>
-    :root { --radius: 10px; }
+    /* Docs — editorial pine/mint, consistent with main app */
     .docs-app { max-width: 860px; margin: 0 auto; padding: 48px 24px 96px; }
-    .docs-nav { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
-    .docs-nav .brand { font-weight: 700; font-size: 1.05rem; }
-    .docs-nav a { color: var(--text-2); font-size: 0.85rem; }
+    .docs-nav { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border-default); }
+    .docs-nav .brand { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; letter-spacing: -0.01em; }
+    .docs-nav a { font-family: var(--font-mono); color: var(--text-muted); font-size: 0.8rem; text-transform: lowercase; }
     .docs-nav a:hover { color: var(--accent); }
-    .docs-hero h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin: 0 0 8px; }
-    .docs-hero p { color: var(--text-2); font-size: 1rem; line-height: 1.6; margin: 0 0 32px; max-width: 640px; }
-    .docs-section { margin: 40px 0; }
-    .docs-section h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 16px; }
-    .docs-section h3 { font-size: 1rem; font-weight: 600; margin: 28px 0 10px; }
-    .docs-section p, .docs-section li { color: var(--text-2); font-size: 0.9rem; line-height: 1.65; }
+    .docs-hero h1 { font-family: var(--font-display); font-size: 2.5rem; font-weight: 400; letter-spacing: -0.01em; margin: 0 0 8px; }
+    .docs-hero p { color: var(--text-secondary); font-size: 1rem; line-height: 1.6; margin: 0 0 24px; max-width: 640px; }
+    .docs-section { margin: 48px 0; }
+    .docs-section h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; letter-spacing: -0.01em; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-default); }
+    .docs-section h3 { font-family: var(--font-sans); font-size: 1rem; font-weight: 600; margin: 28px 0 10px; }
+    .docs-section p, .docs-section li { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.65; }
     .docs-section ul { padding-left: 20px; margin: 8px 0; }
     .docs-section li { margin: 4px 0; }
-    .docs-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 20px 22px; margin: 14px 0; }
+    .docs-card { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-1); padding: 20px 22px; margin: 14px 0; }
     .endpoint { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
-    .method { font-family: var(--mono-font); font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: 5px; letter-spacing: 0.04em; }
-    .method.get { background: rgba(16,185,129,0.12); color: #34d399; }
-    .method.post { background: rgba(59,130,246,0.12); color: #60a5fa; }
-    .method.delete { background: rgba(239,68,68,0.12); color: #f87171; }
-    .endpoint code.end { font-family: var(--mono-font); font-size: 0.82rem; color: var(--text-1); }
-    .ep-desc { font-size: 0.82rem; color: var(--text-2); margin: 0 0 12px; }
-    .auth { display: inline-block; font-family: var(--mono-font); font-size: 0.66rem; color: var(--text-3); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; margin-bottom: 8px; }
-    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; overflow-x: auto; font-family: var(--mono-font); font-size: 0.78rem; line-height: 1.6; margin: 8px 0; color: var(--text-1); }
+    .method { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; padding: 3px 8px; border-radius: var(--radius-sm); letter-spacing: 0.04em; }
+    .method.get { background: rgba(52,211,153,0.12); color: var(--status-pass); }
+    .method.post { background: rgba(110,231,183,0.12); color: var(--accent); }
+    .method.delete { background: rgba(248,113,113,0.12); color: var(--status-fail); }
+    .endpoint code.end { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-primary); }
+    .ep-desc { font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 12px; }
+    .auth { display: inline-block; font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-muted); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 2px 7px; margin-bottom: 8px; }
+    pre { background: var(--surface-0); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 16px 18px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6; margin: 8px 0; color: var(--text-primary); }
     pre code { font-family: inherit; }
-    .note { border-left: 3px solid var(--accent); background: var(--surface); padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; font-size: 0.82rem; color: var(--text-2); margin: 14px 0; line-height: 1.6; }
-    .note strong { color: var(--text-1); }
+    .note { border-left: 2px solid var(--accent); background: var(--surface-1); padding: 12px 16px; border-radius: 0 var(--radius-md) var(--radius-md) 0; font-size: 0.82rem; color: var(--text-secondary); margin: 14px 0; line-height: 1.6; }
+    .note strong { color: var(--text-primary); }
     table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.82rem; }
-    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-    th { color: var(--text-3); font-family: var(--mono-font); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    td { color: var(--text-2); }
-    td code, th code { background: var(--surface); padding: 1px 5px; border-radius: 4px; font-size: 0.78em; }
-    .badge { display: inline-block; font-family: var(--mono-font); font-size: 0.66rem; padding: 2px 8px; border-radius: 99px; margin-right: 6px; }
-    .badge.blue { background: rgba(59,130,246,0.12); color: #60a5fa; }
-    .badge.green { background: rgba(16,185,129,0.12); color: #34d399; }
-    .badge.amber { background: rgba(245,158,11,0.12); color: #fbbf24; }
-    .badge.red { background: rgba(239,68,68,0.12); color: #f87171; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border-default); }
+    th { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { color: var(--text-secondary); }
+    td code, th code { background: var(--surface-1); padding: 1px 5px; border-radius: var(--radius-sm); font-size: 0.78em; font-family: var(--font-mono); }
+    .badge { display: inline-block; font-family: var(--font-mono); font-size: 0.66rem; padding: 2px 8px; border-radius: var(--radius-sm); margin-right: 6px; }
+    .badge.blue { background: rgba(110,231,183,0.12); color: var(--accent); }
+    .badge.green { background: rgba(52,211,153,0.12); color: var(--status-pass); }
+    .badge.amber { background: rgba(251,191,36,0.12); color: var(--status-warn); }
+    .badge.red { background: rgba(248,113,113,0.12); color: var(--status-fail); }
     .toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 16px 0 8px; }
-    .toc a { font-size: 0.85rem; color: var(--text-2); padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-    .toc a:hover { border-color: var(--accent); color: var(--text-1); }
-    .footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 0.75rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-    @media (max-width: 640px) { .docs-app { padding: 28px 16px 64px; } .docs-hero h1 { font-size: 1.6rem; } }
+    .toc a { font-size: 0.85rem; color: var(--text-secondary); padding: 8px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-1); font-family: var(--font-mono); }
+    .toc a:hover { border-color: var(--border-accent); color: var(--text-primary); background: var(--surface-2); }
+    .footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border-default); color: var(--text-muted); font-size: 0.75rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-family: var(--font-mono); }
+    @media (max-width: 640px) { .docs-app { padding: 28px 16px 64px; } .docs-hero h1 { font-size: 2rem; } }
   </style>
 </head>
 <body>
@@ -86,6 +86,7 @@
       <a href="#keys">API Keys</a>
       <a href="#rss">RSS</a>
       <a href="#mcp">MCP</a>
+      <a href="#web-ui">Web UI</a>
     </div>
 
     <section class="docs-section" id="auth">
@@ -104,7 +105,7 @@ curl -H "x-session-id: 550e8400-e29b-41d4-a716-446655440000" \
       </div>
       <div class="docs-card">
         <h3>API key (Bearer)</h3>
-        <p>Create a key from a browser session, then authenticate with <code>Authorization: Bearer tmk_...</code>. Keys are stored SHA-256 hashed and can be revoked.</p>
+        <p>Create a key from a browser session, then authenticate with <code>Authorization: Bearer &lt;tmk_key&gt;</code>. Keys are stored SHA-256 hashed and can be revoked.</p>
         <pre><code># Create a key (needs a browser session)
 curl -X POST -H "x-session-id: &lt;sessionId&gt;" \
   -H "x-key-name: ci-bot" \
@@ -284,6 +285,33 @@ claude mcp add tempe-mail -- node src/api/mcp.ts
 # Environment
 TEMPEMAIL_BASE_URL=https://YOUR_HOST
 TEMPEMAIL_API_KEY=tmk_...</code></pre>
+    </section>
+
+    <section class="docs-section" id="web-ui">
+      <h2>Web UI</h2>
+      <p>The app ships with a complete web interface — no framework, vanilla JS, dark theme by default. Everything below works in the browser without touching the API directly.</p>
+
+      <div class="docs-card">
+        <h3>Inboxes</h3>
+        <p>Create a random or custom inbox from the main view. Each inbox shows its address, expiry, and per-inbox actions (copy, delete). Click an inbox to open it.</p>
+      </div>
+
+      <div class="docs-card">
+        <h3>API Keys panel</h3>
+        <p>Below the inbox list: create a named key (shown once, copy it immediately), see status (active/revoked), and revoke keys. Backed by <code>POST/GET/DELETE /api/keys</code>.</p>
+      </div>
+
+      <div class="docs-card">
+        <h3>Search</h3>
+        <p>Inside an inbox, type in the search bar and press Enter to query the <code>search</code> endpoint. Clear the search to return to the full message list.</p>
+      </div>
+
+      <div class="docs-card">
+        <h3>Webhooks panel</h3>
+        <p>Inside an inbox: add a webhook URL + optional secret, list existing subscriptions, and delete them. Backed by <code>POST/GET/DELETE /api/inboxes/:address/webhooks</code>.</p>
+      </div>
+
+      <div class="note"><strong>No-API usage:</strong> inboxes, messages, search, filters, stars, and webhook management are all available from the web UI — the REST API is only needed for programmatic integrations.</div>
     </section>
 
     <footer class="footer">
