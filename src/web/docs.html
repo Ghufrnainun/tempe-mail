@@ -482,13 +482,29 @@ data: {"type":"new_message","message":{"id":"...","subject":"..."}}</code></pre>
 
       <section class="docs-section" id="mcp">
         <h2>MCP Server</h2>
-        <p>Run a local MCP server that talks to the REST API with a Bearer key. Tools: <code>list_inboxes</code>, <code>list_messages</code>, <code>get_message</code>.</p>
-        <pre><code># Register with Claude Code
-claude mcp add tempe-mail -- node src/api/mcp.ts
+        <p>Run a local MCP server so AI agents (Claude Code, Cursor) can read your inboxes over the Model Context Protocol. It bridges MCP tool calls to the REST API using a Bearer key. Tools: <code>list_inboxes</code>, <code>list_messages</code>, <code>get_message</code>.</p>
 
-# Environment
-TEMPEMAIL_BASE_URL=https://YOUR_HOST
-TEMPEMAIL_API_KEY=tmk_...</code></pre>
+        <h3>1. Create an API key</h3>
+        <pre><code>curl -X POST -H "x-session-id: &lt;sessionId&gt;" \
+  -H "x-key-name: my-agent" \
+  https://YOUR_HOST/api/keys
+# → { "id": 1, "key": "tmk_..." }</code></pre>
+
+        <h3>2. Run the server</h3>
+        <p>The entry point is TypeScript, so run it with <code>tsx</code> (bundled as a dependency) — not plain <code>node</code>.</p>
+        <pre><code># From the project root
+TEMPEMAIL_BASE_URL=https://YOUR_HOST \
+TEMPEMAIL_API_KEY=tmk_... \
+npx tsx src/api/mcp.ts
+
+# or via the npm script (reads env from your shell)
+npm run mcp</code></pre>
+
+        <h3>3. Register with Claude Code</h3>
+        <pre><code>claude mcp add tempe-mail -- \
+  env TEMPEMAIL_BASE_URL=https://YOUR_HOST TEMPEMAIL_API_KEY=tmk_... \
+  npx tsx /absolute/path/to/tempe-mail/src/api/mcp.ts</code></pre>
+        <div class="note"><strong>Note:</strong> the server speaks stdio JSON-RPC 2.0 and is read-only. <code>TEMPEMAIL_API_KEY</code> is required — it exits immediately without one.</div>
       </section>
 
       <footer class="docs-footer">
